@@ -1,6 +1,6 @@
 module Potoki.Core.Consume where
 
-import Potoki.Prelude
+import Potoki.Core.Prelude
 import qualified Potoki.Core.Fetch as A
 import qualified Control.Concurrent.Async as B
 import qualified Data.ByteString as C
@@ -99,7 +99,7 @@ concat =
 {-# INLINE print #-}
 print :: Show input => Consume input ()
 print =
-  Consume (\ fetch -> A.consume fetch Potoki.Prelude.print)
+  Consume (\ fetch -> A.consume fetch Potoki.Core.Prelude.print)
 
 {-|
 Overwrite a file.

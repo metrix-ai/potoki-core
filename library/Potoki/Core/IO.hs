@@ -1,6 +1,6 @@
 module Potoki.Core.IO where
 
-import Potoki.Prelude
+import Potoki.Core.Prelude
 import qualified Data.ByteString as C
 import qualified System.Directory as G
 

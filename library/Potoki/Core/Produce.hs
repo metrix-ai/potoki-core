@@ -1,6 +1,6 @@
 module Potoki.Core.Produce where
 
-import Potoki.Prelude
+import Potoki.Core.Prelude
 import qualified Potoki.Core.Fetch as A
 import qualified Data.Attoparsec.Types as I
 import qualified Data.Attoparsec.ByteString as K

@@ -1,4 +1,4 @@
-module Potoki.Prelude
+module Potoki.Core.Prelude
 ( 
   module Exports,
 )
