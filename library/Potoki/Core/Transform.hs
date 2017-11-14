@@ -4,6 +4,7 @@ import Potoki.Core.Prelude
 import qualified Potoki.Core.Fetch as A
 import qualified Data.Attoparsec.ByteString as K
 import qualified Data.Attoparsec.Text as L
+import qualified Data.HashSet as C
 import qualified Control.Concurrent.Chan.Unagi as B
 import qualified Potoki.Core.IO as G
 
@@ -214,3 +215,28 @@ deleteFile =
 appendBytesToFile :: Transform (FilePath, ByteString) IOException
 appendBytesToFile =
   failingIO (uncurry G.appendBytesToFile)
+
+{-# INLINABLE scan #-}
+scan :: (state -> input -> (output, state)) -> state -> Transform input output
+scan progress start =
+  Transform $ \ (A.Fetch fetch) -> do
+    stateRef <- newIORef start
+    return $ A.Fetch $ \ stop emit -> fetch stop $ \ input -> do
+      !state <- readIORef stateRef
+      case progress state input of
+        (output, !newState) -> do
+          writeIORef stateRef newState
+          emit output
+
+{-# INLINE distinct #-}
+distinct :: (Eq element, Hashable element) => Transform element element
+distinct =
+  Transform $ \ (A.Fetch fetch) -> do
+    stateRef <- newIORef mempty
+    return $ A.Fetch $ \ stop emit -> fix $ \ loop -> fetch stop $ \ input -> do
+      !set <- readIORef stateRef
+      if C.member input set
+        then loop
+        else do
+          writeIORef stateRef $! C.insert input set
+          emit input
