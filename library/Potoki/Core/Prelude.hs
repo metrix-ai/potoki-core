@@ -46,6 +46,10 @@ import Data.HashSet as Exports (HashSet)
 -------------------------
 import Data.Hashable as Exports (Hashable)
 
+-- vector
+-------------------------
+import Data.Vector as Exports (Vector)
+
 -- bug
 -------------------------
 import Bug as Exports

@@ -6,6 +6,7 @@ import qualified Data.Attoparsec.Types as I
 import qualified Data.Attoparsec.ByteString as K
 import qualified Data.Attoparsec.Text as L
 import qualified Data.HashMap.Strict as B
+import qualified Data.Vector as C
 
 
 {-|
@@ -93,3 +94,15 @@ list list =
 hashMapRows :: HashMap a b -> Produce (a, b)
 hashMapRows =
   list . B.toList
+
+{-# INLINE vector #-}
+vector :: Vector input -> Produce input
+vector vector =
+  Produce $ \ fetch -> do
+    indexRef <- newIORef 0
+    fetch $ A.Fetch $ \ stop emit -> do
+      index <- readIORef indexRef
+      writeIORef indexRef $! succ index
+      case (C.!?) vector index of
+        Just !input -> emit input
+        Nothing -> stop
