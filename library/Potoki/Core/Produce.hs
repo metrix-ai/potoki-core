@@ -5,7 +5,7 @@ import qualified Potoki.Core.Fetch as A
 
 
 {-|
-Active producer of elements with support for early termination.
+Passive producer of elements with support for early termination.
 
 Automates the management of resources.
 -}
