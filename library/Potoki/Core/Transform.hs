@@ -144,9 +144,25 @@ takeWhile predicate =
     then emit input
     else stop
 
-{-# INLINE consume #-}
-consume :: (A.Fetch input -> IO output) -> Transform input output
-consume consume =
+{-# INLINABLE explode #-}
+explode :: (input -> IO (A.Fetch output)) -> Transform input output
+explode produce =
+  Transform $ \ (A.Fetch fetch) -> do
+    stateRef <- newIORef Nothing
+    return $ A.Fetch $ \ stop emit -> fix $ \ loop -> do
+      state <- readIORef stateRef
+      case state of
+        Just (A.Fetch fetch) ->
+          fetch (writeIORef stateRef Nothing >> loop) emit
+        Nothing ->
+          fetch stop $ \ input -> do
+            currentFetch <- produce input
+            writeIORef stateRef (Just currentFetch)
+            loop
+
+{-# INLINE implode #-}
+implode :: (A.Fetch input -> IO output) -> Transform input output
+implode consume =
   Transform $ \(A.Fetch fetch) -> do
     stoppedRef <- newIORef False
     return $ A.Fetch $ \stopOutput emitOutput -> do
