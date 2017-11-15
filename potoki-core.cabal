@@ -57,8 +57,6 @@ library
     stm >=2.4 && <3,
     -- 
     profunctors >=5.2 && <6,
-    base-prelude <2,
-    bug >=1 && <2,
     base >=4.7 && <5
 
 test-suite tests
