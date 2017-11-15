@@ -28,8 +28,8 @@ instance Choice Consume where
       fetchedLeftMaybeRef <- newIORef Nothing
       consumedRight <- 
         rightConsumeIO $ A.Fetch $ \ nil just -> join $ eitherFetchIO (return nil) $ \ case
-          Right fetchedRight -> return (just fetchedRight)
-          Left fetchedLeft -> writeIORef fetchedLeftMaybeRef (Just fetchedLeft) >> return nil
+          Right !fetchedRight -> return (just fetchedRight)
+          Left !fetchedLeft -> writeIORef fetchedLeftMaybeRef (Just fetchedLeft) >> return nil
       fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
       case fetchedLeftMaybe of
         Nothing -> return (Right consumedRight)
