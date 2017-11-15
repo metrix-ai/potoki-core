@@ -1,11 +1,6 @@
 module Potoki.Core.Fetch where
 
 import Potoki.Core.Prelude
-import qualified Data.ByteString as A
-import qualified Deque as B
-import qualified Data.Attoparsec.Types as I
-import qualified Data.Attoparsec.ByteString as K
-import qualified Data.Attoparsec.Text as L
 
 
 {-|
@@ -13,228 +8,84 @@ Passive producer of elements.
 -}
 newtype Fetch element =
   {-|
-  Church encoding of @IO (Maybe element)@.
+  Something close to a Church encoding of @IO (Maybe element)@.
   -}
-  Fetch (forall x. IO x -> (element -> IO x) -> IO x)
+  Fetch (forall x. x -> (element -> x) -> IO x)
 
-instance Functor Fetch where
-  fmap mapping (Fetch fetcherFn) =
-    Fetch (\stop emit -> fetcherFn stop (emit . mapping))
+deriving instance Functor Fetch
 
 instance Applicative Fetch where
   pure x =
-    Fetch (\stop emit -> emit x)
+    Fetch (\ nil just -> pure (just x))
   (<*>) (Fetch leftFn) (Fetch rightFn) =
-    Fetch (\stop emit -> leftFn stop (\leftElement -> rightFn stop (\rightElement -> emit (leftElement rightElement))))
+    Fetch (\ nil just ->
+      join (leftFn (pure nil) (\ leftElement ->
+        rightFn nil (\ rightElement -> just (leftElement rightElement)))))
 
 instance Monad Fetch where
   return =
     pure
   (>>=) (Fetch leftFn) rightK =
-    Fetch
-    (\stop emit ->
-      leftFn stop
-      (\leftElement -> case rightK leftElement of
-        Fetch rightFn -> rightFn stop emit))
+    Fetch (\ nil just ->
+      join (leftFn (pure nil) (\ leftElement ->
+        case rightK leftElement of
+          Fetch rightFn -> rightFn nil just)))
 
 instance Alternative Fetch where
   empty =
-    Fetch (\stop emit -> stop)
+    Fetch (\ nil just -> pure nil)
   (<|>) (Fetch leftSignal) (Fetch rightSignal) =
-    Fetch (\stop emit -> leftSignal (rightSignal stop emit) emit)
+    Fetch (\ nil just -> join (leftSignal (rightSignal nil just) (pure . just)))
 
-consume :: Fetch element -> (element -> IO ()) -> IO ()
-consume (Fetch fetch) onElement =
-  fix (\loop -> fetch (pure ()) (\element -> onElement element >> loop))
+instance MonadPlus Fetch where
+  mzero =
+    empty
+  mplus =
+    (<|>)
 
-asMaybeIO :: Fetch element -> IO (Maybe element)
-asMaybeIO (Fetch signal) =
-  signal (pure Nothing) (pure . Just)
-
-maybeIO :: IO (Maybe element) -> Fetch element
-maybeIO maybeIO =
-  Fetch (\stop emit -> maybeIO >>= maybe stop emit)
-
-list :: IORef [input] -> Fetch input
-list unsentListRef =
-  Fetch $ \stop emit -> do
-    list <- readIORef unsentListRef
-    case list of
-      head : tail -> do
-        writeIORef unsentListRef tail
-        emit head
-      _ -> stop
-
-{-# INLINE consumeWithParseResult #-}
-consumeWithParseResult :: forall input parsed. (Monoid input, Eq input) => (input -> I.IResult input parsed) -> Fetch input -> IO (Either Text parsed)
-consumeWithParseResult inputToResult (Fetch fetchInput) =
-  consume inputToResult
-  where
-    consume inputToResult =
-      fetchInput stop emit
-      where
-        stop =
-          emit mempty
-        emit !input =
-          case inputToResult input of
-            I.Partial newInputToResult -> consume newInputToResult
-            I.Done _ parsed -> return (Right parsed)
-            I.Fail _ contexts message -> return (Left resultMessage)
-              where
-                resultMessage =
-                  if null contexts
-                    then fromString message
-                    else fromString (showString (intercalate " > " contexts) (showString ": " message))
-
-{-# INLINE mapWithParseResult #-}
-mapWithParseResult :: forall input parsed. (Monoid input, Eq input) => (input -> I.IResult input parsed) -> Fetch input -> IO (Fetch (Either Text parsed))
-mapWithParseResult inputToResult (Fetch fetchInput) =
-  do
-    unconsumedRef <- newIORef mempty
-    finishedRef <- newIORef False
-    return (Fetch (fetchParsed finishedRef unconsumedRef))
-  where
-    fetchParsed :: IORef Bool -> IORef input -> IO x -> (Either Text parsed -> IO x) -> IO x
-    fetchParsed finishedRef unconsumedRef stop emit =
-      do
-        finished <- readIORef finishedRef
-        if finished
-          then stop
-          else do
-            unconsumed <- readIORef unconsumedRef
-            if unconsumed == mempty
-              then
-                fetchInput
-                  stop
-                  (\input -> do
-                    if input == mempty
-                      then do
-                        stop
-                      else matchResult (inputToResult input))
-              else do
-                writeIORef unconsumedRef mempty
-                matchResult (inputToResult unconsumed)
-      where
-        matchResult =
-          \case
-            I.Partial inputToResult ->
-              consume inputToResult
-            I.Done unconsumed parsed ->
-              do
-                writeIORef unconsumedRef unconsumed
-                emit (Right parsed)
-            I.Fail unconsumed contexts message ->
-              do
-                writeIORef unconsumedRef unconsumed
-                writeIORef finishedRef True
-                emit (Left resultMessage)
-              where
-                resultMessage =
-                  if null contexts
-                    then fromString message
-                    else fromString (showString (intercalate " > " contexts) (showString ": " message))
-        consume inputToResult =
-          fetchInput
-            (do
-              writeIORef finishedRef True
-              matchResult (inputToResult mempty))
-            (\input -> do
-              when (input == mempty) (writeIORef finishedRef True)
-              matchResult (inputToResult input))
-
-{-|
-Lift an Attoparsec ByteString parser.
-
-Consumption is non-greedy and terminates when the parser is done.
--}
-{-# INLINE consumeWithBytesParser #-}
-consumeWithBytesParser :: K.Parser parsed -> Fetch ByteString -> IO (Either Text parsed)
-consumeWithBytesParser parser =
-  consumeWithParseResult (K.parse parser)
-
-{-|
-Lift an Attoparsec Text parser.
-
-Consumption is non-greedy and terminates when the parser is done.
--}
-{-# INLINE consumeWithTextParser #-}
-consumeWithTextParser :: L.Parser parsed -> Fetch Text -> IO (Either Text parsed)
-consumeWithTextParser parser =
-  consumeWithParseResult (L.parse parser)
-
-{-|
-Lift an Attoparsec ByteString parser.
-
-Consumption is non-greedy and terminates when the parser is done.
--}
-{-# INLINE mapWithBytesParser #-}
-mapWithBytesParser :: K.Parser parsed -> Fetch ByteString -> IO (Fetch (Either Text parsed))
-mapWithBytesParser parser =
-  mapWithParseResult (K.parse parser)
-
-{-|
-Lift an Attoparsec Text parser.
-
-Consumption is non-greedy and terminates when the parser is done.
--}
-{-# INLINE mapWithTextParser #-}
-mapWithTextParser :: L.Parser parsed -> Fetch Text -> IO (Fetch (Either Text parsed))
-mapWithTextParser parser =
-  mapWithParseResult (L.parse parser)
-
+{-# INLINABLE duplicate #-}
 duplicate :: Fetch element -> IO (Fetch element, Fetch element)
-duplicate (Fetch fetchInput) =
-  undefined
-
-take :: Int -> Fetch element -> IO (Fetch element)
-take amount (Fetch fetchInput) =
-  fetcher <$> newIORef amount
-  where
-    fetcher countRef =
-      Fetch $ \stop emit -> do
-        count <- readIORef countRef
-        if count > 0
-          then do
-            writeIORef countRef (pred count)
-            fetchInput stop emit
-          else stop
-
-handleBytes :: Handle -> Int -> Fetch (Either IOException ByteString)
-handleBytes handle chunkSize =
-  Fetch $ \stop emit ->
+duplicate (Fetch fetchIO) =
   do
-    element <- try (A.hGetSome handle chunkSize)
-    case element of
-      Right "" -> stop
-      _ -> emit element
-
-first :: (Fetch input -> IO (Fetch output)) -> (Fetch (input, right) -> IO (Fetch (output, right)))
-first inputUpdate (Fetch fetchInputAndRight) =
-  do
-    rightStateRef <- newIORef mempty
-    outputFetch <- inputUpdate (inputFetch rightStateRef)
-    return (outputAndRightFetch rightStateRef outputFetch)
-  where
-    inputFetch rightStateRef =
-      Fetch $ \stop emit ->
-      fetchInputAndRight stop $ \(input, right) -> do
-        modifyIORef rightStateRef (B.snoc right)
-        emit input
-    outputAndRightFetch rightStateRef (Fetch fetchOutput) =
-      Fetch $ \stop emit ->
-      fetchOutput stop $ \output -> do
-        rightState <- readIORef rightStateRef
-        case B.uncons rightState of
-          Just (right, rightStateTail) -> do
-            writeIORef rightStateRef rightStateTail
-            emit (output, right)
-          Nothing -> stop
-
-mapFilter :: (input -> Maybe output) -> Fetch input -> Fetch output
-mapFilter mapping (Fetch fetch) =
-  Fetch $ \stop emit ->
-  fix $ \loop ->
-  fetch stop $ \input ->
-  case mapping input of
-    Just output -> emit output
-    Nothing -> loop
+    leftBuffer <- newTQueueIO
+    rightBuffer <- newTQueueIO
+    notFetchingVar <- newTVarIO True
+    notEndVar <- newTVarIO True
+    let
+      newFetch ownBuffer mirrorBuffer =
+        Fetch
+          (\ nil just -> do
+            join
+              (atomically
+                (mplus
+                  (do
+                    element <- readTQueue ownBuffer
+                    return (return (just element)))
+                  (do
+                    notEnd <- readTVar notEndVar
+                    if notEnd
+                      then do
+                        notFetching <- readTVar notFetchingVar
+                        guard notFetching
+                        writeTVar notFetchingVar False
+                        return
+                          (join
+                            (fetchIO
+                              (do
+                                atomically
+                                  (do
+                                    writeTVar notEndVar False
+                                    writeTVar notFetchingVar True)
+                                return nil)
+                              (\ !element -> do
+                                atomically
+                                  (do
+                                    writeTQueue mirrorBuffer element
+                                    writeTVar notFetchingVar True)
+                                return (just element))))
+                      else return (return nil)))))
+      leftFetch =
+        newFetch leftBuffer rightBuffer
+      rightFetch =
+        newFetch rightBuffer leftBuffer
+      in return (leftFetch, rightFetch)

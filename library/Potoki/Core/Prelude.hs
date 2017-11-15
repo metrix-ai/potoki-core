@@ -14,41 +14,15 @@ import Control.Arrow as Exports (first, second)
 -------------------------
 import BasePrelude as Exports hiding (first, second)
 
--- contravariant
--------------------------
-import Data.Functor.Contravariant as Exports
-import Data.Functor.Contravariant.Divisible as Exports
-
 -- profunctors
 -------------------------
 import Data.Profunctor.Unsafe as Exports
 import Data.Profunctor.Choice as Exports
 import Data.Profunctor.Strong as Exports
 
--- kan-extensions
+-- stm
 -------------------------
-import Control.Monad.Codensity as Exports
-
--- text
--------------------------
-import Data.Text as Exports (Text)
-
--- bytestring
--------------------------
-import Data.ByteString as Exports (ByteString)
-
--- unordered-containers
--------------------------
-import Data.HashMap.Strict as Exports (HashMap)
-import Data.HashSet as Exports (HashSet)
-
--- hashable
--------------------------
-import Data.Hashable as Exports (Hashable)
-
--- vector
--------------------------
-import Data.Vector as Exports (Vector)
+import Control.Concurrent.STM as Exports
 
 -- bug
 -------------------------
