@@ -7,6 +7,8 @@ import qualified Data.Attoparsec.Text as L
 import qualified Data.HashSet as C
 import qualified Control.Concurrent.Chan.Unagi as B
 import qualified Potoki.Core.IO as G
+import qualified Data.ByteString.Builder as E
+import qualified Data.ByteString.Lazy as F
 
 
 newtype Transform input output =
@@ -256,3 +258,10 @@ distinct =
         else do
           writeIORef stateRef $! C.insert input set
           emit input
+
+{-# INLINE builderChunks #-}
+builderChunks :: Transform E.Builder ByteString
+builderChunks =
+  explode $ \ builder -> do
+    chunkListRef <- newIORef (F.toChunks (E.toLazyByteString builder))
+    return (A.list chunkListRef)
