@@ -38,6 +38,12 @@ instance Alternative Produce where
   (<|>) (Produce leftIO) (Produce rightIO) =
     Produce (\ fetch -> leftIO (\ leftFetch -> rightIO (\ rightFetch -> fetch (leftFetch <|> rightFetch))))
 
+instance MonadPlus Produce where
+  mzero =
+    empty
+  mplus =
+    (<|>)
+
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
 list list =
