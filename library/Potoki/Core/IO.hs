@@ -9,20 +9,32 @@ import qualified Potoki.Core.Fetch as D
 
 produceAndConsume :: A.Produce input -> B.Consume input output -> IO output
 produceAndConsume (A.Produce produce) (B.Consume consume) =
-  produce consume
+  do
+    (fetch, kill) <- produce
+    consume fetch <* kill
 
 produceAndTransformAndConsume :: A.Produce input -> C.Transform input anotherInput -> B.Consume anotherInput output -> IO output
 produceAndTransformAndConsume (A.Produce produce) (C.Transform transform) (B.Consume consume) =
-  produce (transform >=> consume)
+  do
+    (fetch, kill) <- produce
+    (transform fetch >>= consume) <* kill
 
-produce :: A.Produce input -> forall x. x -> (input -> x) -> IO x
-produce (A.Produce produce) end element =
-  produce (\ (D.Fetch fetch) -> fetch end element)
+produce :: A.Produce input -> forall x. IO x -> (input -> IO x) -> IO x
+produce (A.Produce produce) stop emit =
+  do
+    (D.Fetch fetchIO, kill) <- produce
+    fix (\ loop -> join (fetchIO stop (\ element -> emit element >> loop))) <* kill
 
 consume :: (forall x. x -> (input -> x) -> IO x) -> B.Consume input output -> IO output
 consume fetch (B.Consume consume) =
   consume (D.Fetch fetch)
 
-fetchAndHandle :: D.Fetch element -> (element -> IO ()) -> IO ()
-fetchAndHandle (D.Fetch fetch) onElement =
-  fix (\ loop -> join (fetch (pure ()) (\ element -> onElement element >> loop)))
+{-| Fetch all the elements running the provided handler on them -}
+fetchAndHandleAll :: D.Fetch element -> (element -> IO ()) -> IO ()
+fetchAndHandleAll (D.Fetch fetchIO) onElement =
+  fix (\ loop -> join (fetchIO (pure ()) (\ element -> onElement element >> loop)))
+
+{-| Fetch just one element -}
+fetch :: D.Fetch element -> IO (Maybe element)
+fetch (D.Fetch fetchIO) =
+  fetchIO Nothing Just

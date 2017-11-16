@@ -10,49 +10,40 @@ Passive producer of elements with support for early termination.
 Automates the management of resources.
 -}
 newtype Produce element =
-  Produce (forall x. (A.Fetch element -> IO x) -> IO x)
+  Produce (IO (A.Fetch element, IO ()))
 
 deriving instance Functor Produce
 
 instance Applicative Produce where
   pure x =
-    Produce (\ fetch -> fetch (pure x))
+    Produce (pure (pure x, pure ()))
   (<*>) (Produce leftIO) (Produce rightIO) =
-    Produce (\ fetch -> leftIO (\ leftFetch -> rightIO (\ rightFetch -> fetch (leftFetch <*> rightFetch))))
-
-instance Monad Produce where
-  return = pure
-  (>>=) (Produce leftIO) rightK =
-    Produce $ \ fetch ->
-    leftIO $ \ (A.Fetch sendLeft) ->
-    fetch $ A.Fetch $ \ nil just ->
-    join $ sendLeft (return nil) $ \ leftElement ->
-    case rightK leftElement of
-      Produce rightIO ->
-        rightIO $ \ (A.Fetch sendRight) ->
-        sendRight nil just
+    Produce $ do
+      (leftFetch, leftKill) <- leftIO
+      (rightFetch, rightKill) <- rightIO
+      return (leftFetch <*> rightFetch, leftKill >> rightKill)
 
 instance Alternative Produce where
   empty =
-    Produce (\ fetch -> fetch empty)
+    Produce (pure (empty, pure ()))
   (<|>) (Produce leftIO) (Produce rightIO) =
-    Produce (\ fetch -> leftIO (\ leftFetch -> rightIO (\ rightFetch -> fetch (leftFetch <|> rightFetch))))
-
-instance MonadPlus Produce where
-  mzero =
-    empty
-  mplus =
-    (<|>)
+    Produce $ do
+      (leftFetch, leftKill) <- leftIO
+      (rightFetch, rightKill) <- rightIO
+      return (leftFetch <|> rightFetch, leftKill >> rightKill)
 
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
 list list =
-  Produce $ \ fetch -> do
+  Produce $ do
     unsentListRef <- newIORef list
-    fetch $ A.Fetch $ \ nil just -> do
-      list <- readIORef unsentListRef
-      case list of
-        (!head) : (!tail) -> do
-          writeIORef unsentListRef tail
-          return (just head)
-        _ -> return nil
+    let
+      fetch =
+        A.Fetch $ \ nil just -> do
+          list <- readIORef unsentListRef
+          case list of
+            (!head) : (!tail) -> do
+              writeIORef unsentListRef tail
+              return (just head)
+            _ -> return nil
+      in return (fetch, return ())

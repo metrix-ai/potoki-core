@@ -3,6 +3,7 @@ module Potoki.Core.Transform where
 import Potoki.Core.Prelude
 import qualified Potoki.Core.Fetch as A
 import qualified Potoki.Core.Consume as C
+import qualified Potoki.Core.Produce as D
 import qualified Deque as B
 
 
@@ -72,11 +73,6 @@ instance ArrowChoice Transform where
 {-# INLINE consume #-}
 consume :: C.Consume input output -> Transform input output
 consume (C.Consume runFetch) =
-  implode runFetch
-
-{-# INLINABLE implode #-}
-implode :: (A.Fetch input -> IO output) -> Transform input output
-implode runFetch =
   Transform $ \ (A.Fetch fetch) -> do
     stoppedRef <- newIORef False
     return $ A.Fetch $ \ nil just -> do
@@ -104,21 +100,25 @@ implode runFetch =
                 else return nil
             else return (just output)
 
-{-# INLINABLE explode #-}
-explode :: (input -> IO (A.Fetch output)) -> Transform input output
-explode produce =
-  Transform $ \ (A.Fetch fetch) -> do
+{-# INLINABLE produce #-}
+produce :: (input -> D.Produce output) -> Transform input output
+produce inputToProduce =
+  Transform $ \ (A.Fetch inputFetchIO) -> do
     stateRef <- newIORef Nothing
     return $ A.Fetch $ \ nil just -> fix $ \ loop -> do
       state <- readIORef stateRef
       case state of
-        Just (A.Fetch fetch) ->
-          join (fetch (writeIORef stateRef Nothing >> loop) (return . just))
+        Just (A.Fetch outputFetchIO, kill) ->
+          join $ outputFetchIO
+            (kill >> writeIORef stateRef Nothing >> loop)
+            (return . just)
         Nothing ->
-          join $ fetch (return nil) $ \ !input -> do
-            currentFetch <- produce input
-            writeIORef stateRef (Just currentFetch)
-            loop
+          join $ inputFetchIO (return nil) $ \ !input -> do
+            case inputToProduce input of
+              D.Produce produceIO -> do
+                fetchAndKill <- produceIO
+                writeIORef stateRef (Just fetchAndKill)
+                loop
 
 {-# INLINE mapFetch #-}
 mapFetch :: (A.Fetch a -> A.Fetch b) -> Transform a b
