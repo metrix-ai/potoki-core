@@ -22,3 +22,7 @@ produce (A.Produce produce) end element =
 consume :: (forall x. x -> (input -> x) -> IO x) -> B.Consume input output -> IO output
 consume fetch (B.Consume consume) =
   consume (D.Fetch fetch)
+
+fetchAndHandle :: D.Fetch element -> (element -> IO ()) -> IO ()
+fetchAndHandle (D.Fetch fetch) onElement =
+  fix (\ loop -> join (fetch (pure ()) (\ element -> onElement element >> loop)))
