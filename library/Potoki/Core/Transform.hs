@@ -51,7 +51,7 @@ instance Strong Transform where
         join $ bothFetchIO (return nil) $ \ (!firstFetched, !secondFetched) -> do
           modifyIORef' secondFetchedDequeRef (B.snoc secondFetched)
           return (just firstFetched)
-      return $ A.Fetch $ \ nil just -> join $ firstFetchIO (return nil) $ \ firstFetched -> do
+      return $ A.Fetch $ \ nil just -> join $ firstFetchIO (return nil) $ \ !firstFetched -> do
         secondFetchedDeque <- readIORef secondFetchedDequeRef
         case B.uncons secondFetchedDeque of
           Just (!secondFetched, !secondFetchedDequeTail) -> do
@@ -92,7 +92,7 @@ implode runFetch =
                 (do
                   writeIORef stoppedRef True
                   return inputNil)
-                (\ input -> do
+                (\ !input -> do
                   writeIORef emittedRef True
                   return (inputJust input)))
           stopped <- readIORef stoppedRef
@@ -115,7 +115,7 @@ explode produce =
         Just (A.Fetch fetch) ->
           join (fetch (writeIORef stateRef Nothing >> loop) (return . just))
         Nothing ->
-          join $ fetch (return nil) $ \ input -> do
+          join $ fetch (return nil) $ \ !input -> do
             currentFetch <- produce input
             writeIORef stateRef (Just currentFetch)
             loop
