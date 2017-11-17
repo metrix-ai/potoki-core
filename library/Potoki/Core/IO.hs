@@ -30,9 +30,9 @@ consume fetch (B.Consume consume) =
   consume (D.Fetch fetch)
 
 {-| Fetch all the elements running the provided handler on them -}
-fetchAndHandleAll :: D.Fetch element -> (element -> IO ()) -> IO ()
-fetchAndHandleAll (D.Fetch fetchIO) onElement =
-  fix (\ loop -> join (fetchIO (pure ()) (\ element -> onElement element >> loop)))
+fetchAndHandleAll :: D.Fetch element -> IO () -> (element -> IO ()) -> IO ()
+fetchAndHandleAll (D.Fetch fetchIO) onEnd onElement =
+  fix (\ loop -> join (fetchIO onEnd (\ element -> onElement element >> loop)))
 
 {-| Fetch just one element -}
 fetch :: D.Fetch element -> IO (Maybe element)
