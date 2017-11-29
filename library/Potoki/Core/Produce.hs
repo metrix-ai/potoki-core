@@ -39,11 +39,7 @@ list list =
     unsentListRef <- newIORef list
     let
       fetch =
-        A.Fetch $ \ nil just -> do
-          list <- readIORef unsentListRef
-          case list of
-            (!head) : (!tail) -> do
-              writeIORef unsentListRef tail
-              return (just head)
-            _ -> return nil
+        A.Fetch $ \ nil just -> atomicModifyIORef' unsentListRef $ \ case
+          (!head) : tail -> (tail, just head)
+          _ -> ([], nil)
       in return (fetch, return ())
