@@ -89,3 +89,10 @@ duplicate (Fetch fetchIO) =
       rightFetch =
         newFetch rightBuffer leftBuffer
       in return (leftFetch, rightFetch)
+
+{-# INLINABLE list #-}
+list :: IORef [element] -> Fetch element
+list unsentListRef =
+  Fetch $ \ nil just -> atomicModifyIORef' unsentListRef $ \ case
+    (!head) : tail -> (tail, just head)
+    _ -> ([], nil)

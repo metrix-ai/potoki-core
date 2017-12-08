@@ -37,9 +37,4 @@ list :: [input] -> Produce input
 list list =
   Produce $ do
     unsentListRef <- newIORef list
-    let
-      fetch =
-        A.Fetch $ \ nil just -> atomicModifyIORef' unsentListRef $ \ case
-          (!head) : tail -> (tail, just head)
-          _ -> ([], nil)
-      in return (fetch, return ())
+    return (A.list unsentListRef, return ())
