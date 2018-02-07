@@ -51,13 +51,10 @@ library
   other-modules:
     Potoki.Core.Prelude
   build-depends:
-    -- 
+    base >=4.7 && <5,
     deque >=0.2 && <0.3,
-    -- 
-    stm >=2.4 && <3,
-    -- 
     profunctors >=5.2 && <6,
-    base >=4.7 && <5
+    stm >=2.4 && <3
 
 test-suite tests
   type:
