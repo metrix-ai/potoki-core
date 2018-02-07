@@ -77,3 +77,7 @@ import Data.Profunctor.Strong as Exports
 -- stm
 -------------------------
 import Control.Concurrent.STM as Exports
+
+-- managed
+-------------------------
+import Control.Monad.Managed as Exports
