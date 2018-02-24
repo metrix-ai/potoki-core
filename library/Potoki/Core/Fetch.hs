@@ -103,7 +103,7 @@ firstCachingSecond cacheRef (Fetch bothFetchIO) =
   Fetch $ \ nil just ->
   join $
   bothFetchIO
-    (atomicModifyIORef' cacheRef (const (Nothing, nil)))
+    (atomicModifyIORef' cacheRef (\ cache -> (cache, nil)))
     (\ (!first, !second) -> atomicModifyIORef' cacheRef (const (Just second, just first)))
 
 {-# INLINABLE bothFetchingFirst #-}
@@ -112,7 +112,7 @@ bothFetchingFirst cacheRef (Fetch firstFetchIO) =
   Fetch $ \ nil just ->
   join $
   firstFetchIO
-    (atomicModifyIORef' cacheRef (const (Nothing, nil)))
+    (atomicModifyIORef' cacheRef (\ cache -> (cache, nil)))
     (\ !firstFetched -> 
       atomicModifyIORef' cacheRef
         (\ case
