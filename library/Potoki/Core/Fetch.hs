@@ -128,3 +128,12 @@ rightCachingLeft cacheRef (Fetch eitherFetchIO) =
   join $ eitherFetchIO (return nil) $ \ case
     Right !rightInput -> return (just rightInput)
     Left !leftInput -> writeIORef cacheRef (Just leftInput) $> nil
+
+{-# INLINABLE eitherFetchingRight #-}
+eitherFetchingRight :: IORef (Maybe left) -> Fetch right -> Fetch (Either left right)
+eitherFetchingRight cacheRef (Fetch rightFetchIO) =
+  Fetch $ \ nil just ->
+  join $ rightFetchIO (return nil) $ \ right ->
+  atomicModifyIORef' cacheRef $ \ case
+    Nothing -> (Nothing, just (Right right))
+    Just left -> (Nothing, just (Left left))
