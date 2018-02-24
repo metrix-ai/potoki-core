@@ -21,8 +21,8 @@ main =
     testProperty "list to list" $ \ (list :: [Int]) ->
     list === unsafePerformIO (C.produceAndConsume (E.list list) D.list)
     ,
-    testProperty "Dual consumption" $ \ (list :: [Int]) ->
-    (list, list) === unsafePerformIO (C.produceAndConsume (E.list list) ((,) <$> D.list <*> D.list))
+    testProperty "consecutive consumers" $ \ (list :: [Int], amount) ->
+    list === unsafePerformIO (C.produceAndConsume (E.list list) ((++) <$> D.transform (A.take amount) D.list <*> D.list))
     ,
     transform
   ]

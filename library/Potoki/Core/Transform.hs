@@ -1,14 +1,21 @@
-module Potoki.Core.Transform where
+module Potoki.Core.Transform
+(
+  Transform(..),
+  consume,
+  produce,
+  mapFetch,
+  executeIO,
+  take,
+)
+where
 
-import Potoki.Core.Prelude
+import Potoki.Core.Prelude hiding (take)
+import Potoki.Core.Transform.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Potoki.Core.Consume as C
 import qualified Potoki.Core.Produce as D
 import qualified Deque as B
 
-
-newtype Transform input output =
-  Transform (A.Fetch input -> IO (A.Fetch output))
 
 instance Category Transform where
   id =
