@@ -120,3 +120,11 @@ bothFetchingFirst cacheRef (Fetch firstFetchIO) =
         (\ case
           Just secondCached -> (Nothing, just (firstFetched, secondCached))
           Nothing -> (Nothing, nil)))
+
+{-# INLINABLE rightCachingLeft #-}
+rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right
+rightCachingLeft cacheRef (Fetch eitherFetchIO) =
+  Fetch $ \ nil just ->
+  join $ eitherFetchIO (return nil) $ \ case
+    Right !rightInput -> return (just rightInput)
+    Left !leftInput -> writeIORef cacheRef (Just leftInput) $> nil
