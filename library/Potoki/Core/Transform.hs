@@ -45,20 +45,10 @@ instance Choice Transform where
 
 instance Strong Transform where
   first' (Transform firstTransformIO) =
-    Transform $ \ (A.Fetch bothFetchIO) -> do
-      secondFetchedDequeRef <- newIORef mempty
-      A.Fetch firstFetchIO <-
-        firstTransformIO $ A.Fetch $ \ nil just ->
-        join $ bothFetchIO (return nil) $ \ (!firstFetched, !secondFetched) -> do
-          modifyIORef' secondFetchedDequeRef (B.snoc secondFetched)
-          return (just firstFetched)
-      return $ A.Fetch $ \ nil just -> join $ firstFetchIO (return nil) $ \ !firstFetched -> do
-        secondFetchedDeque <- readIORef secondFetchedDequeRef
-        case B.uncons secondFetchedDeque of
-          Just (!secondFetched, !secondFetchedDequeTail) -> do
-            writeIORef secondFetchedDequeRef secondFetchedDequeTail
-            return (just (firstFetched, secondFetched))
-          Nothing -> return nil
+    Transform $ \ bothFetch -> do
+      cacheRef <- newIORef Nothing
+      firstFetch <- firstTransformIO (A.firstCachingSecond cacheRef bothFetch)
+      return $ A.bothFetchingFirst cacheRef firstFetch
 
 instance Arrow Transform where
   arr fn =
