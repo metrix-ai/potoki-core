@@ -2,6 +2,7 @@ module Potoki.Core.Produce where
 
 import Potoki.Core.Prelude
 import qualified Potoki.Core.Fetch as A
+import qualified Potoki.Core.Transform.Types as B
 
 
 {-|
@@ -38,3 +39,11 @@ list list =
   Produce $ do
     unsentListRef <- newIORef list
     return (A.list unsentListRef, return ())
+
+{-# INLINE transform #-}
+transform :: B.Transform input output -> Produce input -> Produce output
+transform (B.Transform transformIO) (Produce produceIO) =
+  Produce $ do
+    (fetch, kill) <- produceIO
+    newFetch <- transformIO fetch
+    return (newFetch, kill)

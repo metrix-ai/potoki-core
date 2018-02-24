@@ -49,6 +49,7 @@ library
     Potoki.Core.IO
     Potoki.Core.Transform
   other-modules:
+    Potoki.Core.Transform.Types
     Potoki.Core.Prelude
   build-depends:
     -- 
