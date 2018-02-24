@@ -2,6 +2,7 @@ module Potoki.Core.Consume where
 
 import Potoki.Core.Prelude
 import qualified Potoki.Core.Fetch as A
+import qualified Potoki.Core.Transform.Types as B
 
 
 {-|
@@ -87,3 +88,8 @@ sum =
           (pure acc)
           (\ !element -> build (element + acc)))
     in build 0
+
+{-# INLINABLE transform #-}
+transform :: B.Transform input output -> Consume output sinkOutput -> Consume input sinkOutput
+transform (B.Transform transform) (Consume sink) =
+  Consume (transform >=> sink)
