@@ -1,7 +1,7 @@
 name:
   potoki-core
 version:
-  1.4
+  1.4.1
 synopsis:
   Low-level components of "potoki"
 description:
@@ -52,8 +52,6 @@ library
     Potoki.Core.Transform.Types
     Potoki.Core.Prelude
   build-depends:
-    -- 
-    deque >=0.2 && <0.3,
     -- 
     stm >=2.4 && <3,
     -- 

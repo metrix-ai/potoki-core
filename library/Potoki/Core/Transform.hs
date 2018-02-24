@@ -14,7 +14,6 @@ import Potoki.Core.Transform.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Potoki.Core.Consume as C
 import qualified Potoki.Core.Produce as D
-import qualified Deque as B
 
 
 instance Category Transform where
