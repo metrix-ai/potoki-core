@@ -74,6 +74,23 @@ transformChoice =
 transformArrowLaws =
   testGroup "Arrow laws"
   [
+    testGroup "Strong"
+    [
+      testCase "1" $ do
+        let
+          input = [(1,'a'),(2,'b'),(3,'c'),(4,'d')]
+          transform = first transform1
+        result <- C.produceAndTransformAndConsume (E.list input) transform D.list
+        assertEqual "" [(6,'c'),(4,'d')] result
+      ,
+      testCase "Lack of elements" $ do
+        let
+          input = [(1,'a'),(2,'b')]
+          transform = first transform1
+        result <- C.produceAndTransformAndConsume (E.list input) transform D.list
+        assertEqual "" [(3,'b')] result
+    ]
+    ,
     transformProperty "arr id = id"
       (arr id :: A.Transform Int Int)
       id
@@ -129,8 +146,8 @@ transformArrowLaws =
   where
     f = (+24) :: Int -> Int
     g = (*3) :: Int -> Int
-    transform1 = A.take 3 >>> A.consume D.sum :: A.Transform Int Int
-    transform2 = A.take 4 >>> A.consume D.sum :: A.Transform Int Int
+    transform1 = A.consume (D.transform (A.take 3) D.sum) :: A.Transform Int Int
+    transform2 = A.consume (D.transform (A.take 4) D.sum) :: A.Transform Int Int
     assoc ((a,b),c) = (a,(b,c))
     assocsum (Left (Left x)) = Left x
     assocsum (Left (Right y)) = Right (Left y)
