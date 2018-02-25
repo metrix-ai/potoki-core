@@ -28,7 +28,7 @@ instance Profunctor Transform where
 
 instance Choice Transform where
   right' (Transform rightTransformIO) =
-    Transform $ \ (A.Fetch eitherFetchIO) -> do
+    Transform $ \ eitherFetch -> do
       fetchedLeftMaybeRef <- newIORef Nothing
       rightFetchMaybeRef <- newIORef Nothing
       return $ A.Fetch $ \ nil just -> do
@@ -37,9 +37,7 @@ instance Choice Transform where
           case rightFetchMaybe of
             Just rightFetch -> return rightFetch
             Nothing -> do
-              rightFetch <- rightTransformIO $ A.Fetch $ \ nil just -> join $ eitherFetchIO (return nil) $ \ case
-                Right !rightInput -> return (just rightInput)
-                Left !leftInput -> writeIORef fetchedLeftMaybeRef (Just leftInput) $> nil
+              rightFetch <- rightTransformIO (A.rightCachingLeft fetchedLeftMaybeRef eitherFetch)
               writeIORef rightFetchMaybeRef (Just rightFetch)
               return rightFetch
         join $ rightFetchIO
