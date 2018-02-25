@@ -98,28 +98,26 @@ list unsentListRef =
     _ -> ([], nil)
 
 {-# INLINABLE firstCachingSecond #-}
-firstCachingSecond :: IORef (Maybe b) -> Fetch (a, b) -> Fetch a
+firstCachingSecond :: IORef b -> Fetch (a, b) -> Fetch a
 firstCachingSecond cacheRef (Fetch bothFetchIO) =
   Fetch $ \ nil just ->
   join $
   bothFetchIO
     (return nil)
     (\ (!first, !second) -> do
-      writeIORef cacheRef (Just second)
+      writeIORef cacheRef second
       return (just first))
 
 {-# INLINABLE bothFetchingFirst #-}
-bothFetchingFirst :: IORef (Maybe b) -> Fetch a -> Fetch (a, b)
+bothFetchingFirst :: IORef b -> Fetch a -> Fetch (a, b)
 bothFetchingFirst cacheRef (Fetch firstFetchIO) =
   Fetch $ \ nil just ->
   join $
   firstFetchIO
     (return nil)
-    (\ !firstFetched -> 
-      atomicModifyIORef' cacheRef
-        (\ case
-          Just secondCached -> (Nothing, just (firstFetched, secondCached))
-          Nothing -> (Nothing, nil)))
+    (\ !firstFetched -> do
+      secondCached <- readIORef cacheRef
+      return (just (firstFetched, secondCached)))
 
 {-# INLINABLE rightCachingLeft #-}
 rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right

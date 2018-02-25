@@ -54,7 +54,7 @@ instance Choice Transform where
 instance Strong Transform where
   first' (Transform firstTransformIO) =
     Transform $ \ bothFetch -> do
-      cacheRef <- newIORef Nothing
+      cacheRef <- newIORef undefined
       firstFetch <- firstTransformIO (A.firstCachingSecond cacheRef bothFetch)
       return $ A.bothFetchingFirst cacheRef firstFetch
 
