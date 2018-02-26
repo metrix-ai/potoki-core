@@ -99,39 +99,39 @@ list unsentListRef =
 
 {-# INLINABLE firstCachingSecond #-}
 firstCachingSecond :: IORef b -> Fetch (a, b) -> Fetch a
-firstCachingSecond cacheRef (Fetch bothFetchIO) =
+firstCachingSecond stateRef (Fetch bothFetchIO) =
   Fetch $ \ nil just ->
   join $
   bothFetchIO
     (return nil)
     (\ (!first, !second) -> do
-      writeIORef cacheRef second
+      writeIORef stateRef second
       return (just first))
 
 {-# INLINABLE bothFetchingFirst #-}
 bothFetchingFirst :: IORef b -> Fetch a -> Fetch (a, b)
-bothFetchingFirst cacheRef (Fetch firstFetchIO) =
+bothFetchingFirst stateRef (Fetch firstFetchIO) =
   Fetch $ \ nil just ->
   join $
   firstFetchIO
     (return nil)
     (\ !firstFetched -> do
-      secondCached <- readIORef cacheRef
+      secondCached <- readIORef stateRef
       return (just (firstFetched, secondCached)))
 
 {-# INLINABLE rightCachingLeft #-}
 rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right
-rightCachingLeft cacheRef (Fetch eitherFetchIO) =
+rightCachingLeft stateRef (Fetch eitherFetchIO) =
   Fetch $ \ nil just ->
   join $ eitherFetchIO (return nil) $ \ case
     Right !rightInput -> return (just rightInput)
-    Left !leftInput -> writeIORef cacheRef (Just leftInput) $> nil
+    Left !leftInput -> writeIORef stateRef (Just leftInput) $> nil
 
 {-# INLINABLE eitherFetchingRight #-}
 eitherFetchingRight :: IORef (Maybe left) -> Fetch right -> Fetch (Either left right)
-eitherFetchingRight cacheRef (Fetch rightFetchIO) =
+eitherFetchingRight stateRef (Fetch rightFetchIO) =
   Fetch $ \ nil just ->
   join $ rightFetchIO (return nil) $ \ right ->
-  atomicModifyIORef' cacheRef $ \ case
+  atomicModifyIORef' stateRef $ \ case
     Nothing -> (Nothing, just (Right right))
     Just left -> (Nothing, just (Left left))
