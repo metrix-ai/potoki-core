@@ -135,3 +135,8 @@ eitherFetchingRight stateRef (Fetch rightFetchIO) =
   atomicModifyIORef' stateRef $ \ case
     Nothing -> (Nothing, just (Right right))
     Just left -> (Nothing, just (Left left))
+
+{-# INLINE ioMaybe #-}
+ioMaybe :: IO (Maybe a) -> Fetch a
+ioMaybe io =
+  Fetch $ \nil just -> maybe nil just <$> io
