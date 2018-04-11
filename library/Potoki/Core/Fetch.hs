@@ -93,9 +93,18 @@ duplicate (Fetch fetchIO) =
 {-# INLINABLE list #-}
 list :: IORef [element] -> Fetch element
 list unsentListRef =
-  Fetch $ \ nil just -> atomicModifyIORef' unsentListRef $ \ case
-    (!head) : tail -> (tail, just head)
-    _ -> ([], nil)
+--version without do
+{-
+  Fetch $ \nil just -> fmap (\ case
+    (!head) : _ -> just head
+    _           -> nil)
+      (readIORef unsentListRef)
+-}
+  Fetch $ \nil just -> do
+    elementList <- readIORef unsentListRef
+    return $ case elementList of
+      (!head) : _ -> just head
+      _           -> nil
 
 {-# INLINABLE firstCachingSecond #-}
 firstCachingSecond :: IORef b -> Fetch (a, b) -> Fetch a

@@ -17,7 +17,7 @@ deriving instance Functor Produce
 
 instance Applicative Produce where
   pure x =
-    list [x]
+    Produce $ pure (pure x, pure ())
   (<*>) (Produce leftIO) (Produce rightIO) =
     Produce $ do
       (leftFetch, leftKill) <- leftIO
