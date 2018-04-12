@@ -90,21 +90,29 @@ duplicate (Fetch fetchIO) =
         newFetch rightBuffer leftBuffer
       in return (leftFetch, rightFetch)
 
+{-# INLINABLE maybeRef #-}
+maybeRef :: IORef (Maybe a) -> Fetch a
+maybeRef refElem =
+  Fetch $ \nil just -> do
+    elem <- readIORef refElem
+    case elem of
+      Nothing -> return nil
+      Just e  -> do
+        writeIORef refElem Nothing
+        return $ just e
+
 {-# INLINABLE list #-}
 list :: IORef [element] -> Fetch element
 list unsentListRef =
---version without do
-{-
-  Fetch $ \nil just -> fmap (\ case
-    (!head) : _ -> just head
-    _           -> nil)
-      (readIORef unsentListRef)
--}
   Fetch $ \nil just -> do
-    elementList <- readIORef unsentListRef
-    return $ case elementList of
-      (!head) : _ -> just head
-      _           -> nil
+    refList <- readIORef unsentListRef
+    case refList of
+      (!head) : tail -> do
+        writeIORef unsentListRef tail
+        return $ just head
+      _              -> do
+        writeIORef unsentListRef []
+        return nil
 
 {-# INLINABLE firstCachingSecond #-}
 firstCachingSecond :: IORef b -> Fetch (a, b) -> Fetch a
