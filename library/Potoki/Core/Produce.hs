@@ -16,8 +16,9 @@ newtype Produce element =
 deriving instance Functor Produce
 
 instance Applicative Produce where
-  pure x =
-    list [x]
+  pure x = Produce $ do
+    refX <- newIORef (Just x)
+    return (A.maybeRef refX, pure ())
   (<*>) (Produce leftIO) (Produce rightIO) =
     Produce $ do
       (leftFetch, leftKill) <- leftIO
