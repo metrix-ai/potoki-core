@@ -1,22 +1,9 @@
 module Potoki.Core.Consume where
 
 import Potoki.Core.Prelude
+import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Potoki.Core.Transform.Types as B
 
-
-{-|
-Active consumer of input into output.
-Sort of like a reducer in Map/Reduce.
-
-Automates the management of resources.
--}
-newtype Consume input output =
-  {-|
-  An action, which executes the provided fetch in IO,
-  while managing the resources behind the scenes.
-  -}
-  Consume (A.Fetch input -> IO output)
 
 instance Profunctor Consume where
   {-# INLINE dimap #-}
@@ -25,10 +12,10 @@ instance Profunctor Consume where
 
 instance Choice Consume where
   right' (Consume rightConsumeIO) =
-    Consume $ \ (A.Fetch eitherFetchIO) -> do
+    Consume $ \ (Fetch eitherFetchIO) -> do
       fetchedLeftMaybeRef <- newIORef Nothing
       consumedRight <- 
-        rightConsumeIO $ A.Fetch $ \ nil just -> join $ eitherFetchIO (return nil) $ \ case
+        rightConsumeIO $ Fetch $ \ nil just -> join $ eitherFetchIO (return nil) $ \ case
           Right !fetchedRight -> return (just fetchedRight)
           Left !fetchedLeft -> writeIORef fetchedLeftMaybeRef (Just fetchedLeft) >> return nil
       fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
@@ -68,7 +55,7 @@ apConcurrently (Consume leftConsumeIO) (Consume rightConsumeIO) =
 {-# INLINABLE list #-}
 list :: Consume input [input]
 list =
-  Consume $ \ (A.Fetch fetchIO) ->
+  Consume $ \ (Fetch fetchIO) ->
   let
     build !acc =
       join
@@ -80,7 +67,7 @@ list =
 {-# INLINE sum #-}
 sum :: Num num => Consume num num
 sum =
-  Consume $ \ (A.Fetch fetchIO) ->
+  Consume $ \ (Fetch fetchIO) ->
   let
     build !acc =
       join
@@ -90,6 +77,6 @@ sum =
     in build 0
 
 {-# INLINABLE transform #-}
-transform :: B.Transform input output -> Consume output sinkOutput -> Consume input sinkOutput
-transform (B.Transform transform) (Consume sink) =
-  Consume (transform >=> sink)
+transform :: Transform input output -> Consume output sinkOutput -> Consume input sinkOutput
+transform (Transform transformManaged) (Consume sink) =
+  Consume (\ fetch -> with (fmap ($ fetch) transformManaged) sink)

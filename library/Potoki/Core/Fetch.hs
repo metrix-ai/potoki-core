@@ -1,16 +1,8 @@
 module Potoki.Core.Fetch where
 
 import Potoki.Core.Prelude
+import Potoki.Core.Types
 
-
-{-|
-Passive producer of elements.
--}
-newtype Fetch element =
-  {-|
-  Something close to a Church encoding of @IO (Maybe element)@.
-  -}
-  Fetch (forall x. x -> (element -> x) -> IO x)
 
 deriving instance Functor Fetch
 
@@ -99,40 +91,40 @@ list unsentListRef =
 
 {-# INLINABLE firstCachingSecond #-}
 firstCachingSecond :: IORef b -> Fetch (a, b) -> Fetch a
-firstCachingSecond stateRef (Fetch bothFetchIO) =
+firstCachingSecond cacheRef (Fetch bothFetchIO) =
   Fetch $ \ nil just ->
   join $
   bothFetchIO
     (return nil)
     (\ (!first, !second) -> do
-      writeIORef stateRef second
+      writeIORef cacheRef second
       return (just first))
 
 {-# INLINABLE bothFetchingFirst #-}
 bothFetchingFirst :: IORef b -> Fetch a -> Fetch (a, b)
-bothFetchingFirst stateRef (Fetch firstFetchIO) =
+bothFetchingFirst cacheRef (Fetch firstFetchIO) =
   Fetch $ \ nil just ->
   join $
   firstFetchIO
     (return nil)
     (\ !firstFetched -> do
-      secondCached <- readIORef stateRef
+      secondCached <- readIORef cacheRef
       return (just (firstFetched, secondCached)))
 
 {-# INLINABLE rightCachingLeft #-}
 rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right
-rightCachingLeft stateRef (Fetch eitherFetchIO) =
+rightCachingLeft cacheRef (Fetch eitherFetchIO) =
   Fetch $ \ nil just ->
   join $ eitherFetchIO (return nil) $ \ case
     Right !rightInput -> return (just rightInput)
-    Left !leftInput -> writeIORef stateRef (Just leftInput) $> nil
+    Left !leftInput -> writeIORef cacheRef (Just leftInput) $> nil
 
 {-# INLINABLE eitherFetchingRight #-}
 eitherFetchingRight :: IORef (Maybe left) -> Fetch right -> Fetch (Either left right)
-eitherFetchingRight stateRef (Fetch rightFetchIO) =
+eitherFetchingRight cacheRef (Fetch rightFetchIO) =
   Fetch $ \ nil just ->
   join $ rightFetchIO (return nil) $ \ right ->
-  atomicModifyIORef' stateRef $ \ case
+  atomicModifyIORef' cacheRef $ \ case
     Nothing -> (Nothing, just (Right right))
     Just left -> (Nothing, just (Left left))
 

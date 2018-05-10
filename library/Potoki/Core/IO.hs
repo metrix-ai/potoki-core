@@ -1,45 +1,44 @@
 module Potoki.Core.IO where
 
 import Potoki.Core.Prelude
+import Potoki.Core.Types
 import qualified Potoki.Core.Produce as A
 import qualified Potoki.Core.Consume as B
-import qualified Potoki.Core.Transform as C
-import qualified Potoki.Core.Fetch as D
 
 
-produceAndConsume :: A.Produce input -> B.Consume input output -> IO output
-produceAndConsume (A.Produce produce) (B.Consume consume) =
-  do
-    (fetch, kill) <- produce
-    consume fetch <* kill
+produceAndConsume :: Produce input -> Consume input output -> IO output
+produceAndConsume (Produce produceManaged) (Consume consume) =
+  with produceManaged consume
 
-produceAndTransformAndConsume :: A.Produce input -> C.Transform input anotherInput -> B.Consume anotherInput output -> IO output
-produceAndTransformAndConsume (A.Produce produce) (C.Transform transform) (B.Consume consume) =
-  do
-    (fetch, kill) <- produce
-    (transform fetch >>= consume) <* kill
+produceAndTransformAndConsume :: Produce input -> Transform input anotherInput -> Consume anotherInput output -> IO output
+produceAndTransformAndConsume (Produce produceManaged) (Transform transformManaged) (Consume consume) =
+  with (($) <$> transformManaged <*> produceManaged) consume
 
-produce :: A.Produce input -> forall x. IO x -> (input -> IO x) -> IO x
-produce (A.Produce produce) stop emit =
-  do
-    (D.Fetch fetchIO, kill) <- produce
-    fix (\ loop -> join (fetchIO stop (\ element -> emit element >> loop))) <* kill
+produce :: Produce input -> forall x. IO x -> (input -> IO x) -> IO x
+produce (Produce produceManaged) stop emit =
+  with produceManaged $ \ (Fetch fetchIO) -> 
+  fix (\ loop -> join (fetchIO stop (\ element -> emit element >> loop)))
 
-consume :: (forall x. x -> (input -> x) -> IO x) -> B.Consume input output -> IO output
-consume fetch (B.Consume consume) =
-  consume (D.Fetch fetch)
+consume :: (forall x. x -> (input -> x) -> IO x) -> Consume input output -> IO output
+consume fetch (Consume consume) =
+  consume (Fetch fetch)
 
 {-| Fetch all the elements running the provided handler on them -}
-fetchAndHandleAll :: D.Fetch element -> IO () -> (element -> IO ()) -> IO ()
-fetchAndHandleAll (D.Fetch fetchIO) onEnd onElement =
+fetchAndHandleAll :: Fetch element -> IO () -> (element -> IO ()) -> IO ()
+fetchAndHandleAll (Fetch fetchIO) onEnd onElement =
   fix (\ loop -> join (fetchIO onEnd (\ element -> onElement element >> loop)))
 
+{-| Fetch and handle just one element -}
+fetchAndHandle :: Fetch element -> IO a -> (element -> IO a) -> IO a
+fetchAndHandle (Fetch fetchIO) onEnd onElement =
+  join (fetchIO onEnd onElement)
+
 {-| Fetch just one element -}
-fetch :: D.Fetch element -> IO (Maybe element)
-fetch (D.Fetch fetchIO) =
+fetch :: Fetch element -> IO (Maybe element)
+fetch (Fetch fetchIO) =
   fetchIO Nothing Just
 
-transformList :: C.Transform a b -> [a] -> IO [b]
+transformList :: Transform a b -> [a] -> IO [b]
 transformList transform inputList =
   produceAndTransformAndConsume
     (A.list inputList)

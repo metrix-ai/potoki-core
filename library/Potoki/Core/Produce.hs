@@ -1,49 +1,33 @@
 module Potoki.Core.Produce where
 
 import Potoki.Core.Prelude
+import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Potoki.Core.Transform.Types as B
 
-
-{-|
-Passive producer of elements with support for early termination.
-
-Automates the management of resources.
--}
-newtype Produce element =
-  Produce (IO (A.Fetch element, IO ()))
 
 deriving instance Functor Produce
 
 instance Applicative Produce where
   pure x =
     list [x]
-  (<*>) (Produce leftIO) (Produce rightIO) =
-    Produce $ do
-      (leftFetch, leftKill) <- leftIO
-      (rightFetch, rightKill) <- rightIO
-      return (leftFetch <*> rightFetch, leftKill >> rightKill)
+  (<*>) (Produce leftManaged) (Produce rightManaged) =
+    Produce ((<*>) <$> leftManaged <*> rightManaged)
 
 instance Alternative Produce where
   empty =
-    Produce (pure (empty, pure ()))
-  (<|>) (Produce leftIO) (Produce rightIO) =
-    Produce $ do
-      (leftFetch, leftKill) <- leftIO
-      (rightFetch, rightKill) <- rightIO
-      return (leftFetch <|> rightFetch, leftKill >> rightKill)
+    Produce (pure empty)
+  (<|>) (Produce leftManaged) (Produce rightManaged) =
+    Produce ((<|>) <$> leftManaged <*> rightManaged)
 
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
 list list =
-  Produce $ do
-    unsentListRef <- newIORef list
-    return (A.list unsentListRef, return ())
+  Produce (liftIO (A.list <$> newIORef list))
 
 {-# INLINE transform #-}
-transform :: B.Transform input output -> Produce input -> Produce output
-transform (B.Transform transformIO) (Produce produceIO) =
+transform :: Transform input output -> Produce input -> Produce output
+transform (Transform transformManaged) (Produce produceManaged) =
   Produce $ do
-    (fetch, kill) <- produceIO
-    newFetch <- transformIO fetch
-    return (newFetch, kill)
+    fetch <- produceManaged
+    newFetch <- transformManaged
+    return (newFetch fetch)
