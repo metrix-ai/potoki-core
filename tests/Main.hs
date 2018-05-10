@@ -59,16 +59,16 @@ transformChoice =
     testCase "2" $ do
       let
         list = [Left 1, Left 2, Right 'z', Right 'a', Right 'b', Left 0, Right 'x', Left 4, Left 3]
-        transform = right (A.consume D.list)
+        transform = right' (A.consume D.list)
       result <- C.produceAndTransformAndConsume (E.list list) transform D.list
       assertEqual "" [Left 1, Left 2, Right "zab", Left 0, Right "x", Left 4, Left 3] result
     ,
     testCase "3" $ do
       let
-        list = [Right 'z', Right 'a', Left 3, Right 'b', Left 0, Left 1, Right 'x', Left 4, Left 3]
-        transform = left (A.consume D.list)
+        list = [Left 4, Right 'z', Right 'a', Left 3, Right 'b', Left 0, Left 1, Right 'x', Left 4, Left 3]
+        transform = left' (A.consume D.list)
       result <- C.produceAndTransformAndConsume (E.list list) transform D.list
-      assertEqual "" [Right 'z', Right 'a', Left [3], Right 'b', Left [0, 1], Right 'x', Left [4, 3]] result
+      assertEqual "" [Left [4], Right 'z', Right 'a', Left [3], Right 'b', Left [0, 1], Right 'x', Left [4, 3]] result
   ]
 
 transformArrowLaws =
