@@ -111,13 +111,18 @@ bothFetchingFirst cacheRef (Fetch firstFetchIO) =
       secondCached <- readIORef cacheRef
       return (just (firstFetched, secondCached)))
 
-{-# INLINABLE rightCachingLeft #-}
-rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right
-rightCachingLeft cacheRef (Fetch eitherFetchIO) =
+{-# INLINABLE rightHandlingLeft #-}
+rightHandlingLeft :: (left -> IO ()) -> Fetch (Either left right) -> Fetch right
+rightHandlingLeft handle (Fetch eitherFetchIO) =
   Fetch $ \ nil just ->
   join $ eitherFetchIO (return nil) $ \ case
     Right !rightInput -> return (just rightInput)
-    Left !leftInput -> writeIORef cacheRef (Just leftInput) $> nil
+    Left !leftInput -> handle leftInput $> nil
+
+{-# INLINABLE rightCachingLeft #-}
+rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right
+rightCachingLeft cacheRef =
+  rightHandlingLeft (writeIORef cacheRef . Just)
 
 {-# INLINABLE eitherFetchingRight #-}
 eitherFetchingRight :: IORef (Maybe left) -> Fetch right -> Fetch (Either left right)
