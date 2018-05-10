@@ -72,7 +72,9 @@ consume (Consume runFetch) =
     return $ \ (Fetch fetch) -> Fetch $ \ stop yield -> do
       stopped <- readIORef stoppedRef
       if stopped
-        then return stop
+        then do
+          writeIORef stoppedRef False
+          return stop
         else do
           emittedRef <- newIORef False
           output <-
@@ -91,7 +93,9 @@ consume (Consume runFetch) =
               emitted <- readIORef emittedRef
               if emitted
                 then return (yield output)
-                else return stop
+                else do
+                  writeIORef stoppedRef False
+                  return stop
             else return (yield output)
 
 {-# INLINE mapFetch #-}
