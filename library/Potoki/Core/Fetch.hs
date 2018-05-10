@@ -119,11 +119,6 @@ rightHandlingLeft handle (Fetch eitherFetchIO) =
     Right !rightInput -> return (just rightInput)
     Left !leftInput -> handle leftInput $> nil
 
-{-# INLINABLE rightCachingLeft #-}
-rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right
-rightCachingLeft cacheRef =
-  rightHandlingLeft (writeIORef cacheRef . Just)
-
 {-# INLINABLE eitherFetchingRight #-}
 eitherFetchingRight :: IORef (Maybe left) -> Fetch right -> Fetch (Either left right)
 eitherFetchingRight cacheRef (Fetch rightFetchIO) =

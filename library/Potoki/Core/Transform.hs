@@ -35,7 +35,7 @@ instance Choice Transform where
       fetchedLeftMaybeRef <- liftIO (newIORef Nothing)
       return $ \ inFetch ->
         let
-          Fetch rightFetchIO = rightInFetchToOutFetch (A.rightCachingLeft fetchedLeftMaybeRef inFetch)
+          Fetch rightFetchIO = rightInFetchToOutFetch (A.rightHandlingLeft (writeIORef fetchedLeftMaybeRef . Just) inFetch)
           in Fetch $ \ stop yield -> do
             join $ rightFetchIO
               (do
