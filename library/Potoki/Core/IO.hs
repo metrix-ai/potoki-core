@@ -38,3 +38,10 @@ fetchAndHandleAll (D.Fetch fetchIO) onEnd onElement =
 fetch :: D.Fetch element -> IO (Maybe element)
 fetch (D.Fetch fetchIO) =
   fetchIO Nothing Just
+
+transformList :: C.Transform a b -> [a] -> IO [b]
+transformList transform inputList =
+  produceAndTransformAndConsume
+    (A.list inputList)
+    transform
+    (B.list)
