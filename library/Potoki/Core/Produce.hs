@@ -9,6 +9,7 @@ where
 import Potoki.Core.Prelude
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
+import qualified Potoki.Core.Acquire as B
 
 
 deriving instance Functor Produce
@@ -17,14 +18,14 @@ instance Applicative Produce where
   pure x = Produce $ do
     refX <- liftIO (newIORef (Just x))
     return (A.maybeRef refX)
-  (<*>) (Produce leftManaged) (Produce rightManaged) =
-    Produce ((<*>) <$> leftManaged <*> rightManaged)
+  (<*>) (Produce leftAcquire) (Produce rightAcquire) =
+    Produce ((<*>) <$> leftAcquire <*> rightAcquire)
 
 instance Alternative Produce where
   empty =
     Produce (pure empty)
-  (<|>) (Produce leftManaged) (Produce rightManaged) =
-    Produce ((<|>) <$> leftManaged <*> rightManaged)
+  (<|>) (Produce leftAcquire) (Produce rightAcquire) =
+    Produce ((<|>) <$> leftAcquire <*> rightAcquire)
 
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
@@ -33,8 +34,8 @@ list list =
 
 {-# INLINE transform #-}
 transform :: Transform input output -> Produce input -> Produce output
-transform (Transform transformManaged) (Produce produceManaged) =
+transform (Transform transformAcquire) (Produce produceAcquire) =
   Produce $ do
-    fetch <- produceManaged
-    newFetch <- transformManaged
+    fetch <- produceAcquire
+    newFetch <- transformAcquire
     return (newFetch fetch)
