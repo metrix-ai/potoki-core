@@ -4,7 +4,7 @@ import Potoki.Core.Prelude
 import Potoki.Core.Types
 import qualified Potoki.Core.Produce as A
 import qualified Potoki.Core.Consume as B
-import qualified Potoki.Core.With as C
+import qualified Potoki.Core.Acquire as C
 
 
 produceAndConsume :: Produce input -> Consume input output -> IO output

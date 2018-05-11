@@ -7,8 +7,8 @@ import Potoki.Core.Prelude
 {-|
 Implementation of http://www.haskellforall.com/2013/06/the-resource-applicative.html
 -}
-newtype With resource =
-  With (IO (resource, IO ()))
+newtype Acquire resource =
+  Acquire (IO (resource, IO ()))
 
 {-|
 Passive producer of elements with support for early termination.
@@ -24,7 +24,7 @@ Passive producer of elements with support for early termination
 and resource management.
 -}
 newtype Produce element =
-  Produce (With (Fetch element))
+  Produce (Acquire (Fetch element))
 
 {-|
 Active consumer of input into output.
@@ -40,4 +40,4 @@ newtype Consume input output =
   Consume (Fetch input -> IO output)
 
 newtype Transform input output =
-  Transform (With (Fetch input -> Fetch output))
+  Transform (Acquire (Fetch input -> Fetch output))

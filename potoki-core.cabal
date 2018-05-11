@@ -43,7 +43,7 @@ library
   default-language:
     Haskell2010
   exposed-modules:
-    Potoki.Core.With
+    Potoki.Core.Acquire
     Potoki.Core.Produce
     Potoki.Core.Fetch
     Potoki.Core.Consume

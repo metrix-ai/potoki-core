@@ -114,7 +114,7 @@ produce inputToProduce =
         Nothing ->
           join $ inputFetchIO (return nil) $ \ !input -> do
             case inputToProduce input of
-              Produce (With produceIO) -> do
+              Produce (Acquire produceIO) -> do
                 fetchAndKill <- produceIO
                 writeIORef stateRef (Just fetchAndKill)
                 loop
