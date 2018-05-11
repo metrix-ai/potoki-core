@@ -8,8 +8,9 @@ import qualified Potoki.Core.Fetch as A
 deriving instance Functor Produce
 
 instance Applicative Produce where
-  pure x =
-    list [x]
+  pure x = Produce $ do
+    refX <- newIORef (Just x)
+    return (A.maybeRef refX, pure ())
   (<*>) (Produce leftManaged) (Produce rightManaged) =
     Produce ((<*>) <$> leftManaged <*> rightManaged)
 

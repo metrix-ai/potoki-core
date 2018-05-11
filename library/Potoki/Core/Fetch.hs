@@ -82,12 +82,29 @@ duplicate (Fetch fetchIO) =
         newFetch rightBuffer leftBuffer
       in return (leftFetch, rightFetch)
 
+{-# INLINABLE maybeRef #-}
+maybeRef :: IORef (Maybe a) -> Fetch a
+maybeRef refElem =
+  Fetch $ \nil just -> do
+    elem <- readIORef refElem
+    case elem of
+      Nothing -> return nil
+      Just e  -> do
+        writeIORef refElem Nothing
+        return $ just e
+
 {-# INLINABLE list #-}
 list :: IORef [element] -> Fetch element
 list unsentListRef =
-  Fetch $ \ nil just -> atomicModifyIORef' unsentListRef $ \ case
-    (!head) : tail -> (tail, just head)
-    _ -> ([], nil)
+  Fetch $ \nil just -> do
+    refList <- readIORef unsentListRef
+    case refList of
+      (!head) : tail -> do
+        writeIORef unsentListRef tail
+        return $ just head
+      _              -> do
+        writeIORef unsentListRef []
+        return nil
 
 {-# INLINABLE firstCachingSecond #-}
 firstCachingSecond :: IORef b -> Fetch (a, b) -> Fetch a
@@ -118,6 +135,11 @@ rightHandlingLeft handle (Fetch eitherFetchIO) =
   join $ eitherFetchIO (return nil) $ \ case
     Right !rightInput -> return (just rightInput)
     Left !leftInput -> handle leftInput $> nil
+
+{-# INLINABLE rightCachingLeft #-}
+rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right
+rightCachingLeft cacheRef =
+  rightHandlingLeft (writeIORef cacheRef . Just)
 
 {-# INLINABLE eitherFetchingRight #-}
 eitherFetchingRight :: IORef (Maybe left) -> Fetch right -> Fetch (Either left right)
