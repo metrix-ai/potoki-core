@@ -30,21 +30,10 @@ main =
 transform =
   testGroup "Transform" $
   [
-    -- transformProduce
-    -- ,
     transformChoice
     ,
     transformArrowLaws
   ]
-
--- transformProduce =
---   testCase "Produce" $ do
---     let list = [1, 2, 3] :: [Int]
---     result <- C.produceAndTransformAndConsume
---       (E.list list)
---       (A.produce (E.list . \ n -> flip replicate n n))
---       (D.list)
---     assertEqual "" [1, 2, 2, 3, 3, 3] result
 
 transformChoice =
   testGroup "Choice" $
