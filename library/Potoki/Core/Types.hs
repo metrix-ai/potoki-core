@@ -5,12 +5,6 @@ import Potoki.Core.Prelude
 
 
 {-|
-Implementation of http://www.haskellforall.com/2013/06/the-resource-applicative.html
--}
-newtype Acquire resource =
-  Acquire (IO (resource, IO ()))
-
-{-|
 Passive producer of elements with support for early termination.
 -}
 newtype Fetch element =

@@ -9,7 +9,7 @@ where
 import Potoki.Core.Prelude
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Potoki.Core.Acquire as B
+import qualified Acquire.IO as B
 
 
 deriving instance Functor Produce

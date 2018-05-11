@@ -43,7 +43,6 @@ library
   default-language:
     Haskell2010
   exposed-modules:
-    Potoki.Core.Acquire
     Potoki.Core.Produce
     Potoki.Core.Fetch
     Potoki.Core.Consume
@@ -53,6 +52,7 @@ library
     Potoki.Core.Types
     Potoki.Core.Prelude
   build-depends:
+    acquire >=0.2 && <0.3,
     base >=4.7 && <5,
     profunctors >=5.2 && <6,
     stm >=2.4 && <3

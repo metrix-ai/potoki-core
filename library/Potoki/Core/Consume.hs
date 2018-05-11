@@ -11,7 +11,7 @@ where
 import Potoki.Core.Prelude hiding (sum)
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Potoki.Core.Acquire as B
+import qualified Acquire.IO as B
 
 
 instance Profunctor Consume where
@@ -88,4 +88,4 @@ sum =
 {-# INLINABLE transform #-}
 transform :: Transform input output -> Consume output sinkOutput -> Consume input sinkOutput
 transform (Transform transformAcquire) (Consume sink) =
-  Consume (\ fetch -> B.with (fmap ($ fetch) transformAcquire) sink)
+  Consume (\ fetch -> B.acquire (fmap ($ fetch) transformAcquire) sink)

@@ -4,20 +4,20 @@ import Potoki.Core.Prelude
 import Potoki.Core.Types
 import qualified Potoki.Core.Produce as A
 import qualified Potoki.Core.Consume as B
-import qualified Potoki.Core.Acquire as C
+import qualified Acquire.IO as C
 
 
 produceAndConsume :: Produce input -> Consume input output -> IO output
 produceAndConsume (Produce produceManaged) (Consume consume) =
-  C.with produceManaged consume
+  C.acquire produceManaged consume
 
 produceAndTransformAndConsume :: Produce input -> Transform input anotherInput -> Consume anotherInput output -> IO output
 produceAndTransformAndConsume (Produce produceManaged) (Transform transformManaged) (Consume consume) =
-  C.with (($) <$> transformManaged <*> produceManaged) consume
+  C.acquire (($) <$> transformManaged <*> produceManaged) consume
 
 produce :: Produce input -> forall x. IO x -> (input -> IO x) -> IO x
 produce (Produce produceManaged) stop emit =
-  C.with produceManaged $ \ (Fetch fetchIO) -> 
+  C.acquire produceManaged $ \ (Fetch fetchIO) -> 
   fix (\ loop -> join (fetchIO stop (\ element -> emit element >> loop)))
 
 consume :: (forall x. x -> (input -> x) -> IO x) -> Consume input output -> IO output

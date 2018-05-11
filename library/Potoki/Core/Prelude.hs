@@ -77,3 +77,7 @@ import Data.Profunctor.Strong as Exports
 -- stm
 -------------------------
 import Control.Concurrent.STM as Exports
+
+-- acquire
+-------------------------
+import Acquire.Acquire as Exports
