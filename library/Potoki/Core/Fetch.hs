@@ -1,4 +1,18 @@
-module Potoki.Core.Fetch where
+module Potoki.Core.Fetch
+(
+  Fetch(..),
+  duplicate,
+  maybeRef,
+  list,
+  firstCachingSecond,
+  bothFetchingFirst,
+  rightHandlingLeft,
+  rightCachingLeft,
+  eitherFetchingRight,
+  signaling,
+  ioMaybe,
+)
+where
 
 import Potoki.Core.Prelude
 import Potoki.Core.Types

@@ -1,6 +1,14 @@
-module Potoki.Core.Consume where
+module Potoki.Core.Consume
+(
+  Consume(..),
+  apConcurrently,
+  list,
+  sum,
+  transform,
+)
+where
 
-import Potoki.Core.Prelude
+import Potoki.Core.Prelude hiding (sum)
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 

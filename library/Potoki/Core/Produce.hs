@@ -1,4 +1,10 @@
-module Potoki.Core.Produce where
+module Potoki.Core.Produce
+(
+  Produce(..),
+  list,
+  transform,
+)
+where
 
 import Potoki.Core.Prelude
 import Potoki.Core.Types
