@@ -11,6 +11,7 @@ module Potoki.Core.Fetch
   eitherFetchingRight,
   signaling,
   ioMaybe,
+  ioFetch,
 )
 where
 
@@ -174,3 +175,10 @@ signaling signalEnd signalElement (Fetch io) =
 ioMaybe :: IO (Maybe a) -> Fetch a
 ioMaybe io =
   Fetch $ \nil just -> maybe nil just <$> io
+
+{-# INLINABLE ioFetch #-}
+ioFetch :: IO (Fetch a) -> Fetch a
+ioFetch io =
+  Fetch $ \ nil just -> do
+    Fetch fetchIO <- io
+    fetchIO nil just

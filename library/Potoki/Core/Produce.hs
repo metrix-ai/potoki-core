@@ -27,6 +27,25 @@ instance Alternative Produce where
   (<|>) (Produce leftAcquire) (Produce rightAcquire) =
     Produce ((<|>) <$> leftAcquire <*> rightAcquire)
 
+instance Monad Produce where
+  return = pure
+  (>>=) (Produce (Acquire io1)) k2 =
+    Produce $ Acquire $ do
+      (fetch1, release1) <- io1
+      release2Ref <- newIORef (return ())
+      let
+        fetch2 input1 =
+          case k2 input1 of
+            Produce (Acquire io2) ->
+              A.ioFetch $ do
+                join (readIORef release2Ref)
+                (fetch2, release2) <- io2
+                writeIORef release2Ref release2
+                return fetch2
+        release3 =
+          join (readIORef release2Ref) >> release1
+        in return (fetch1 >>= fetch2, release3)
+
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
 list list =
