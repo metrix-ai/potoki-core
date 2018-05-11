@@ -5,7 +5,7 @@ import Potoki.Core.Prelude
 
 
 {-|
-Passive producer of elements with support for early termination.
+Passive producer of elements.
 -}
 newtype Fetch element =
   {-|
