@@ -9,7 +9,7 @@ where
 import Potoki.Core.Prelude
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Potoki.Core.Acquire as B
+import qualified Potoki.Core.With as B
 
 
 deriving instance Functor Produce
@@ -18,25 +18,25 @@ instance Applicative Produce where
   pure x = Produce $ do
     refX <- liftIO (newIORef (Just x))
     return (A.maybeRef refX)
-  (<*>) (Produce leftAcquire) (Produce rightAcquire) =
-    Produce ((<*>) <$> leftAcquire <*> rightAcquire)
+  (<*>) (Produce leftWith) (Produce rightWith) =
+    Produce ((<*>) <$> leftWith <*> rightWith)
 
 instance Alternative Produce where
   empty =
     Produce (pure empty)
-  (<|>) (Produce leftAcquire) (Produce rightAcquire) =
-    Produce ((<|>) <$> leftAcquire <*> rightAcquire)
+  (<|>) (Produce leftWith) (Produce rightWith) =
+    Produce ((<|>) <$> leftWith <*> rightWith)
 
 instance Monad Produce where
   return = pure
-  (>>=) (Produce (Acquire io1)) k2 =
-    Produce $ Acquire $ do
+  (>>=) (Produce (With io1)) k2 =
+    Produce $ With $ do
       (fetch1, release1) <- io1
       release2Ref <- newIORef (return ())
       let
         fetch2 input1 =
           case k2 input1 of
-            Produce (Acquire io2) ->
+            Produce (With io2) ->
               A.ioFetch $ do
                 join (readIORef release2Ref)
                 (fetch2, release2) <- io2
@@ -53,8 +53,8 @@ list list =
 
 {-# INLINE transform #-}
 transform :: Transform input output -> Produce input -> Produce output
-transform (Transform transformAcquire) (Produce produceAcquire) =
+transform (Transform transformWith) (Produce produceWith) =
   Produce $ do
-    fetch <- produceAcquire
-    newFetch <- transformAcquire
+    fetch <- produceWith
+    newFetch <- transformWith
     return (newFetch fetch)
