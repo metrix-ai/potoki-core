@@ -128,6 +128,12 @@ eitherFetchingRight cacheRef (Fetch rightFetchIO) =
     Nothing -> (Nothing, just (Right right))
     Just left -> (Nothing, just (Left left))
 
+{-# INLINABLE signaling #-}
+signaling :: IO () -> IO () -> Fetch a -> Fetch a
+signaling signalEnd signalElement (Fetch io) =
+  Fetch $ \ nil just ->
+  join (io (signalEnd $> nil) (\ element -> signalElement >> return (just element)))
+
 {-# INLINE ioMaybe #-}
 ioMaybe :: IO (Maybe a) -> Fetch a
 ioMaybe io =
