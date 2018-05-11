@@ -8,10 +8,7 @@ import Potoki.Core.Prelude
 Passive producer of elements.
 -}
 newtype Fetch element =
-  {-|
-  Something close to a Church encoding of @IO (Maybe element)@.
-  -}
-  Fetch (forall x. x -> (element -> x) -> IO x)
+  Fetch (IO (Maybe element))
 
 {-|
 Passive producer of elements with support for early termination
