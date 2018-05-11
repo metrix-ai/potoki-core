@@ -9,8 +9,8 @@ deriving instance Functor Produce
 
 instance Applicative Produce where
   pure x = Produce $ do
-    refX <- newIORef (Just x)
-    return (A.maybeRef refX, pure ())
+    refX <- liftIO (newIORef (Just x))
+    return (A.maybeRef refX)
   (<*>) (Produce leftManaged) (Produce rightManaged) =
     Produce ((<*>) <$> leftManaged <*> rightManaged)
 
