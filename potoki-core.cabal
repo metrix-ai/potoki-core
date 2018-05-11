@@ -1,7 +1,7 @@
 name:
   potoki-core
 version:
-  2
+  0.9
 synopsis:
   Low-level components of "potoki"
 description:
