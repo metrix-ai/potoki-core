@@ -2,6 +2,7 @@ module Potoki.Core.Transform
 (
   Transform(..),
   consume,
+  produce,
   mapFetch,
   executeIO,
   take,
@@ -97,6 +98,26 @@ consume (Consume runFetch) =
                   writeIORef stoppedRef False
                   return stop
             else return (yield output)
+
+{-# INLINABLE produce #-}
+produce :: (input -> Produce output) -> Transform input output
+produce inputToProduce =
+  Transform $ do
+    stateRef <- liftIO (newIORef Nothing)
+    return $ \ (Fetch inputFetchIO) -> Fetch $ \ nil just -> fix $ \ loop -> do
+      state <- readIORef stateRef
+      case state of
+        Just (Fetch outputFetchIO, kill) ->
+          join $ outputFetchIO
+            (kill >> writeIORef stateRef Nothing >> loop)
+            (return . just)
+        Nothing ->
+          join $ inputFetchIO (return nil) $ \ !input -> do
+            case inputToProduce input of
+              Produce (With produceIO) -> do
+                fetchAndKill <- produceIO
+                writeIORef stateRef (Just fetchAndKill)
+                loop
 
 {-# INLINE mapFetch #-}
 mapFetch :: (Fetch a -> Fetch b) -> Transform a b
