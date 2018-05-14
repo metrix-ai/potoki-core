@@ -17,20 +17,27 @@ import qualified Acquire.IO as B
 instance Profunctor Consume where
   {-# INLINE dimap #-}
   dimap inputMapping outputMapping (Consume consume) =
-    Consume (\ fetch -> fmap outputMapping (consume (fmap inputMapping fetch)))
+    Consume (\ fetch -> fmap outputMapping (consume $ fmap inputMapping fetch))
 
 instance Choice Consume where
+--rigit' Consume in out -> Consume (Either c in) (Either c out)
   right' (Consume rightConsumeIO) =
-    Consume $ \ (Fetch eitherFetchIO) -> do
-      fetchedLeftMaybeRef <- newIORef Nothing
-      consumedRight <- 
-        rightConsumeIO $ Fetch $ \ nil just -> join $ eitherFetchIO (return nil) $ \ case
-          Right !fetchedRight -> return (just fetchedRight)
-          Left !fetchedLeft -> writeIORef fetchedLeftMaybeRef (Just fetchedLeft) >> return nil
-      fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
-      case fetchedLeftMaybe of
-        Nothing -> return (Right consumedRight)
-        Just fetchedLeft -> return (Left fetchedLeft)
+     Consume $ \(Fetch eitherFetchIO) -> do
+       fetchedLeftMaybeRef <- newIORef Nothing
+       consumedRight <-
+         rightConsumeIO $ Fetch $ join $ do
+           eitherFetch <- eitherFetchIO
+           return $ case eitherFetch of
+             Nothing      -> return Nothing
+             Just element -> case element of
+               Right !fetchedRight -> return $ Just fetchedRight
+               Left  !fetchedLeft  -> do
+                 writeIORef fetchedLeftMaybeRef (Just fetchedLeft)
+                 return Nothing
+       fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
+       case fetchedLeftMaybe of
+         Nothing          -> return $ Right consumedRight
+         Just fetchedLeft -> return $ Left fetchedLeft 
 
 instance Functor (Consume input) where
   fmap = rmap
@@ -64,26 +71,28 @@ apConcurrently (Consume leftConsumeIO) (Consume rightConsumeIO) =
 {-# INLINABLE list #-}
 list :: Consume input [input]
 list =
-  Consume $ \ (Fetch fetchIO) ->
-  let
+  Consume $ \(Fetch fetchIO) ->
+  let 
     build !acc =
-      join
-        (fetchIO
-          (pure (acc []))
-          (\ !element -> build (acc . (:) element)))
-    in build id
+      join $ do
+        fetch <- fetchIO
+        return $ case fetch of
+          Nothing       -> pure $ acc []
+          Just !element -> build $ acc . (:) element
+   in build id
 
 {-# INLINE sum #-}
 sum :: Num num => Consume num num
 sum =
-  Consume $ \ (Fetch fetchIO) ->
+  Consume $ \(Fetch fetchIO) ->
   let
     build !acc =
-      join
-        (fetchIO
-          (pure acc)
-          (\ !element -> build (element + acc)))
-    in build 0
+      join $ do
+        fetch <- fetchIO
+        return $ case fetch of
+          Nothing       -> pure acc
+          Just !element -> build $ element + acc
+   in build 0
 
 {-# INLINABLE transform #-}
 transform :: Transform input output -> Consume output sinkOutput -> Consume input sinkOutput

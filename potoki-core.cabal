@@ -43,9 +43,9 @@ library
   default-language:
     Haskell2010
   exposed-modules:
-    -- Potoki.Core.Produce
+    Potoki.Core.Produce
     Potoki.Core.Fetch
-    -- Potoki.Core.Consume
+    Potoki.Core.Consume
     -- Potoki.Core.IO
     -- Potoki.Core.Transform
   other-modules:
