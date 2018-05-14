@@ -8,36 +8,50 @@ import qualified Acquire.IO as C
 
 
 produceAndConsume :: Produce input -> Consume input output -> IO output
-produceAndConsume (Produce produceManaged) (Consume consume) =
-  C.acquire produceManaged consume
+produceAndConsume (Produce produceAcquire) (Consume consume) =
+  C.acquire produceAcquire consume
 
 produceAndTransformAndConsume :: Produce input -> Transform input anotherInput -> Consume anotherInput output -> IO output
-produceAndTransformAndConsume (Produce produceManaged) (Transform transformManaged) (Consume consume) =
-  C.acquire (($) <$> transformManaged <*> produceManaged) consume
+produceAndTransformAndConsume (Produce produceAcquire) (Transform transformAcquire) (Consume consume) =
+  C.acquire (($) <$> transformAcquire <*> produceAcquire) consume
 
 produce :: Produce input -> forall x. IO x -> (input -> IO x) -> IO x
-produce (Produce produceManaged) stop emit =
-  C.acquire produceManaged $ \ (Fetch fetchIO) -> 
-  fix (\ loop -> join (fetchIO stop (\ element -> emit element >> loop)))
+produce (Produce produceAcquire) stop emit =
+  C.acquire produceAcquire $ \ (Fetch fetchIO) ->
+    join $ do
+      fetch <- fetchIO
+      return $ fix $ \ loop ->
+        case fetch of
+          Nothing      -> stop
+          Just element -> emit element >> loop
 
-consume :: (forall x. x -> (input -> x) -> IO x) -> Consume input output -> IO output
-consume fetch (Consume consume) =
-  consume (Fetch fetch)
+consume :: IO (Maybe input) -> Consume input output -> IO output
+consume fetchIO (Consume consume) =
+  consume (Fetch fetchIO)
 
 {-| Fetch all the elements running the provided handler on them -}
 fetchAndHandleAll :: Fetch element -> IO () -> (element -> IO ()) -> IO ()
 fetchAndHandleAll (Fetch fetchIO) onEnd onElement =
-  fix (\ loop -> join (fetchIO onEnd (\ element -> onElement element >> loop)))
+  join $ do
+    fetch <- fetchIO
+    return $ fix $ \ loop ->
+      case fetch of
+        Nothing      -> onEnd
+        Just element -> onElement element >> loop
 
 {-| Fetch and handle just one element -}
 fetchAndHandle :: Fetch element -> IO a -> (element -> IO a) -> IO a
 fetchAndHandle (Fetch fetchIO) onEnd onElement =
-  join (fetchIO onEnd onElement)
+  join $ do
+    fetch <- fetchIO
+    return $ case fetch of
+      Nothing      -> onEnd
+      Just element -> onElement element
 
 {-| Fetch just one element -}
 fetch :: Fetch element -> IO (Maybe element)
 fetch (Fetch fetchIO) =
-  fetchIO Nothing Just
+  fetchIO
 
 transformList :: Transform a b -> [a] -> IO [b]
 transformList transform inputList =

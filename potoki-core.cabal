@@ -46,8 +46,8 @@ library
     Potoki.Core.Produce
     Potoki.Core.Fetch
     Potoki.Core.Consume
-    -- Potoki.Core.IO
-    -- Potoki.Core.Transform
+    Potoki.Core.IO
+--    Potoki.Core.Transform
   other-modules:
     Potoki.Core.Types
     Potoki.Core.Prelude
