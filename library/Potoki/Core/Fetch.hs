@@ -10,7 +10,6 @@ module Potoki.Core.Fetch
   rightCachingLeft,
   eitherFetchingRight,
   signaling,
-  ioMaybe,
   ioFetch,
 )
 where
@@ -183,10 +182,6 @@ signaling signalEnd signalElement (Fetch aFetchIO) =
     return $ case aFetch of
       Nothing      -> signalEnd $> Nothing
       Just element -> signalElement >> return (Just element)
-
-{-# INLINE ioMaybe #-}
-ioMaybe :: IO (Maybe a) -> Fetch a
-ioMaybe = Fetch
 
 {-# INLINABLE ioFetch #-}
 ioFetch :: IO (Fetch a) -> Fetch a
