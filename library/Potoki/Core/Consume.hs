@@ -20,7 +20,7 @@ instance Profunctor Consume where
     Consume (\ fetch -> fmap outputMapping (consume $ fmap inputMapping fetch))
 
 instance Choice Consume where
---rigit' Consume in out -> Consume (Either c in) (Either c out)
+  right' :: Consume a b -> Consume (Either c a) (Either c b)
   right' (Consume rightConsumeIO) =
      Consume $ \(Fetch eitherFetchIO) -> do
        fetchedLeftMaybeRef <- newIORef Nothing
