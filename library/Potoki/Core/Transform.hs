@@ -105,32 +105,30 @@ consume (Consume runFetch) =
 {-# INLINABLE produce #-}
 produce :: (input -> Produce output) -> Transform input output
 produce inputToProduce =
-  Transform $ do
-    stateRef <- liftIO (newIORef Nothing)
-    return $ \(Fetch inputFetchIO) ->
-      Fetch $ join $ do
-        inputFetch <- inputFetchIO
-        return $ fix $ \ loop -> do
-          state <- readIORef stateRef
-          case state of
-            Just (Fetch outputFetchIO, kill) ->
-              join $ do
-                outputFetch <- outputFetchIO
-                return $ case outputFetch of
-                  Nothing      -> do
-                    kill
-                    writeIORef stateRef Nothing
-                    loop
-                  Just element -> return $ Just element
-            Nothing ->
-              case inputFetch of
-                Nothing     -> return Nothing
-                Just !input -> do
-                  case inputToProduce input of
-                    Produce (Acquire produceIO) -> do
-                      fetchAndKill <- produceIO
-                      writeIORef stateRef (Just fetchAndKill)
-                      loop
+  Transform $ return $ \(Fetch inputFetchIO) -> Fetch $ do
+    stateRef <- newIORef Nothing
+    fix $ \ loop -> do
+      state <- readIORef stateRef
+      case state of
+        Nothing                          -> do
+          inputFetch <- inputFetchIO
+          case inputFetch of
+            Nothing     -> return Nothing
+            Just !input -> do
+              case inputToProduce input of
+                Produce (Acquire fetchAndKillIO) -> do
+                  fetchAndKill <- fetchAndKillIO
+                  writeIORef stateRef $ Just fetchAndKill
+                  loop
+        Just (Fetch outputFetchIO, kill) -> do
+          outputFetch <- outputFetchIO
+          case outputFetch of
+            Nothing      -> do
+              kill
+              writeIORef stateRef Nothing
+              loop
+            Just element -> do
+              return $ Just element
 
 {-# INLINE mapFetch #-}
 mapFetch :: (Fetch a -> Fetch b) -> Transform a b
