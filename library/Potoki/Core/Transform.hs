@@ -105,30 +105,28 @@ consume (Consume runFetch) =
 {-# INLINABLE produce #-}
 produce :: (input -> Produce output) -> Transform input output
 produce inputToProduce =
-  Transform $ return $ \(Fetch inputFetchIO) -> Fetch $ do
-    stateRef <- newIORef Nothing
-    fix $ \ loop -> do
+  Transform $ do
+    stateRef <- liftIO (newIORef Nothing)
+    return $ \ (Fetch inputFetchIO) -> Fetch $ fix $ \ loop -> do
       state <- readIORef stateRef
       case state of
-        Nothing                          -> do
-          inputFetch <- inputFetchIO
-          case inputFetch of
-            Nothing     -> return Nothing
-            Just !input -> do
-              case inputToProduce input of
-                Produce (Acquire fetchAndKillIO) -> do
-                  fetchAndKill <- fetchAndKillIO
-                  writeIORef stateRef $ Just fetchAndKill
-                  loop
-        Just (Fetch outputFetchIO, kill) -> do
-          outputFetch <- outputFetchIO
-          case outputFetch of
-            Nothing      -> do
-              kill
-              writeIORef stateRef Nothing
-              loop
-            Just element -> do
-              return $ Just element
+        Just (Fetch outputFetchIO, kill) ->
+          do
+            outputFetchResult <- outputFetchIO
+            case outputFetchResult of
+              Just x -> return (Just x)
+              Nothing -> kill >> writeIORef stateRef Nothing >> loop
+        Nothing ->
+          do
+            inputFetchResult <- inputFetchIO
+            case inputFetchResult of
+              Just input -> do
+                case inputToProduce input of
+                  Produce (Acquire produceIO) -> do
+                    fetchAndKill <- produceIO
+                    writeIORef stateRef (Just fetchAndKill)
+                    loop
+              Nothing -> return Nothing
 
 {-# INLINE mapFetch #-}
 mapFetch :: (Fetch a -> Fetch b) -> Transform a b
