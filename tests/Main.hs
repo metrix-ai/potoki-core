@@ -31,21 +31,46 @@ transform =
   testGroup "Transform" $
   [
     transformProduce
+{-
     ,
     transformChoice
     ,
     transformArrowLaws
+-}
   ]
 
 transformProduce =
-  testCase "Produce" $ do
-    let list = [1, 2, 3] :: [Int]
-    result <- C.produceAndTransformAndConsume
-      (E.list list)
-      (A.produce (E.list . \ n -> flip replicate n n))
-      (D.list)
-    assertEqual "" [1, 2, 2, 3, 3, 3] result
+  testGroup "Produce" $ 
+  [
+    testCase "1" $ do
+      let
+        list = [1, 2, 3] :: [Int]
+      result <- C.produceAndTransformAndConsume
+        (E.list list)
+        (A.produce (E.list . \ n -> flip replicate n n))
+        (D.list)
+      assertEqual "" [1, 2, 2, 3, 3, 3] result
+  ,
+    testCase "2" $ do
+      let
+        list = [1, 2, 3] :: [Int]
+      result <- C.produceAndTransformAndConsume
+        (E.list list)
+        (A.produce (E.list . \ n -> [(n, n)]))
+        (D.list)
+      assertEqual "" [(1, 1), (2, 2), (3, 3)] result
+  ,
+    testCase "3" $ do
+      let
+        list = [1, 2, 3] :: [Int]
+      result <- C.produceAndTransformAndConsume
+        (E.list list)
+        (A.produce (E.list . \ n -> [n, n]))
+        (D.list)
+      assertEqual "" [1, 1, 2, 2, 3, 3] result
+  ]
 
+{-
 transformChoice =
   testGroup "Choice" $
   [
@@ -70,7 +95,8 @@ transformChoice =
       result <- C.produceAndTransformAndConsume (E.list list) transform D.list
       assertEqual "" [Left [4], Right 'z', Right 'a', Left [3], Right 'b', Left [0, 1], Right 'x', Left [4, 3]] result
   ]
-
+-}
+{-
 transformArrowLaws =
   testGroup "Arrow laws"
   [
@@ -164,3 +190,4 @@ transformProperty name leftTransform rightTransform =
       where
         transform transform =
           unsafePerformIO (C.produceAndTransformAndConsume (E.list list) transform D.list)
+-}
