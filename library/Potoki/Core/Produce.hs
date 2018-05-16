@@ -9,7 +9,6 @@ where
 import Potoki.Core.Prelude
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Acquire.IO as B
 
 
 deriving instance Functor Produce
@@ -39,17 +38,17 @@ instance Monad Produce where
             Produce (Acquire io2) ->
               A.ioFetch $ do
                 join (readIORef release2Ref)
-                (fetch2, release2) <- io2
-                writeIORef release2Ref release2
-                return fetch2
+                (fetch2', release2') <- io2
+                writeIORef release2Ref release2'
+                return fetch2'
         release3 =
           join (readIORef release2Ref) >> release1
         in return (fetch1 >>= fetch2, release3)
 
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
-list list =
-  Produce (liftIO (A.list <$> newIORef list))
+list inputList =
+  Produce $ liftIO (A.list <$> newIORef inputList)
 
 {-# INLINE transform #-}
 transform :: Transform input output -> Produce input -> Produce output
@@ -57,4 +56,4 @@ transform (Transform transformAcquire) (Produce produceAcquire) =
   Produce $ do
     fetch <- produceAcquire
     newFetch <- transformAcquire
-    return (newFetch fetch)
+    return $ newFetch fetch

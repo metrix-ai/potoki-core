@@ -103,12 +103,12 @@ duplicate (Fetch fetchIO) =
 maybeRef :: IORef (Maybe a) -> Fetch a
 maybeRef refElem =
   Fetch $ do
-    elem <- readIORef refElem
-    case elem of
-      Nothing -> return Nothing
-      Just e  -> do
+    elemVal <- readIORef refElem
+    case elemVal of
+      Nothing      -> return Nothing
+      Just element -> do
         writeIORef refElem Nothing
-        return $ Just e
+        return $ Just element
 
 {-# INLINABLE list #-}
 list :: IORef [element] -> Fetch element
@@ -116,9 +116,9 @@ list unsentListRef =
   Fetch $ do
     refList <- readIORef unsentListRef
     case refList of
-      (!head) : (!tail) -> do
-        writeIORef unsentListRef tail
-        return $ Just head
+      (!headVal) : (!tailVal) -> do
+        writeIORef unsentListRef tailVal
+        return $ Just headVal
       _              -> do
         writeIORef unsentListRef []
         return Nothing
@@ -130,9 +130,9 @@ firstCachingSecond cacheRef (Fetch bothFetchIO) =
     bothFetch <- bothFetchIO
     case bothFetch of
       Nothing                -> return Nothing
-      Just (!first, !second) -> do
-        writeIORef cacheRef second
-        return $ Just first
+      Just (!firstVal, !secondVal) -> do
+        writeIORef cacheRef secondVal
+        return $ Just firstVal
 
 {-# INLINABLE bothFetchingFirst #-}
 bothFetchingFirst :: IORef b -> Fetch a -> Fetch (a, b)
@@ -147,14 +147,14 @@ bothFetchingFirst cacheRef (Fetch firstFetchIO) =
 
 {-# INLINABLE rightHandlingLeft #-}
 rightHandlingLeft :: (left -> IO ()) -> Fetch (Either left right) -> Fetch right
-rightHandlingLeft handle (Fetch eitherFetchIO) =
+rightHandlingLeft left2IO (Fetch eitherFetchIO) =
   Fetch $ do
     eitherFetch <- eitherFetchIO
     case eitherFetch of
       Nothing    -> return Nothing
       Just input -> case input of
         Right !rightInput -> return $ Just rightInput
-        Left  !leftInput  -> handle leftInput $> Nothing
+        Left  !leftInput  -> left2IO leftInput $> Nothing
 
 {-# INLINABLE rightCachingLeft #-}
 rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right
