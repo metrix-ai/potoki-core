@@ -28,20 +28,20 @@ instance Profunctor Transform where
   dimap inputMapping outputMapping (Transform acquire) =
     Transform $ do
       newFetch <- acquire
-      return $ \oldFetch -> fmap outputMapping (newFetch (fmap inputMapping oldFetch))
+      return $ \oldFetch -> fmap outputMapping (newFetch $ fmap inputMapping oldFetch)
 
 instance Choice Transform where
   right' :: Transform a b -> Transform (Either c a) (Either c b)
   right' (Transform rightTransformAcquire) =
     Transform $ do
       rightInFetchToOutFetch <- rightTransformAcquire
-      fetchedLeftMaybeRef <- liftIO (newIORef Nothing)
+      fetchedLeftMaybeRef <- liftIO $ newIORef Nothing
       return $ \inFetch ->
         let
           Fetch rightFetchIO = rightInFetchToOutFetch $ A.rightHandlingLeft (writeIORef fetchedLeftMaybeRef . Just) inFetch
-         in Fetch $ join $ do
+         in Fetch $ do
            rightFetch <- rightFetchIO
-           return $ case rightFetch of
+           case rightFetch of
              Nothing    -> do
                fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
                case fetchedLeftMaybe of
@@ -74,39 +74,38 @@ consume (Consume runFetch) =
   Transform $ do
     stoppedRef <- liftIO $ newIORef False
     return $ \(Fetch inputIO) -> Fetch $ do
-      input <- inputIO
-      join $ do
-        stopped <- readIORef stoppedRef
-        return $ if stopped
+      stopped <- readIORef stoppedRef
+      if stopped
         then do
           writeIORef stoppedRef False
           return Nothing
         else do
           emittedRef <- newIORef False
-          output <- runFetch $ Fetch $
+          output <- runFetch $ Fetch $ do
+            input <- inputIO
             case input of
               Nothing     -> do
                 writeIORef stoppedRef True
                 return Nothing
-              Just !input -> do
+              Just element -> do
                 writeIORef emittedRef True
-                return $ Just input
+                return $ Just element
           stopped <- readIORef stoppedRef
           if stopped
-          then do
-            emitted <- readIORef emittedRef
-            if emitted
-            then return $ Just output
-            else do
-              writeIORef stoppedRef False
-              return Nothing
-          else return $ Just output
+            then do
+              emitted <- readIORef emittedRef
+              if emitted
+                then return $ Just output
+                else do
+                  writeIORef stoppedRef False
+                  return Nothing
+            else return $ Just output
 
 {-# INLINABLE produce #-}
 produce :: (input -> Produce output) -> Transform input output
 produce inputToProduce =
   Transform $ do
-    stateRef <- liftIO (newIORef Nothing)
+    stateRef <- liftIO $ newIORef Nothing
     return $ \ (Fetch inputFetchIO) -> Fetch $ fix $ \ loop -> do
       state <- readIORef stateRef
       case state of
@@ -115,7 +114,10 @@ produce inputToProduce =
             outputFetchResult <- outputFetchIO
             case outputFetchResult of
               Just x -> return (Just x)
-              Nothing -> kill >> writeIORef stateRef Nothing >> loop
+              Nothing -> do
+                kill
+                writeIORef stateRef Nothing
+                loop
         Nothing ->
           do
             inputFetchResult <- inputFetchIO
@@ -140,9 +142,9 @@ Execute the IO action.
 executeIO :: Transform (IO a) a
 executeIO =
   mapFetch $ \(Fetch fetchIO) ->
-    Fetch $ join $ do
+    Fetch $ do
       fetch <- fetchIO
-      return $ case fetch of
+      case fetch of
         Nothing        -> return Nothing
         Just ioElement -> fmap Just ioElement
 
@@ -152,14 +154,13 @@ take amount
   | amount <= 0 =
     Transform $ return $ \_ -> Fetch $ return Nothing
   | otherwise   =
-    Transform $ return $ 
-      \(Fetch fetch) ->
-        Fetch $ join $ do
-          countIO <- newIORef amount
-          return $ do
-            count <- readIORef countIO
-            if count == 0
-            then return Nothing
-            else do
-              modifyIORef countIO pred
-              fetch
+    Transform $ do
+      countRef <- liftIO $ newIORef amount
+      return $ \ (Fetch fetchIO) -> Fetch $ do
+        count <- readIORef countRef
+        if count > 0
+          then do
+            modifyIORef countRef pred
+            fetchIO
+          else
+            return Nothing
