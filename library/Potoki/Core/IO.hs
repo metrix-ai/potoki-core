@@ -17,34 +17,32 @@ produceAndTransformAndConsume (Produce produceAcquire) (Transform transformAcqui
 
 produce :: Produce input -> forall x. IO x -> (input -> IO x) -> IO x
 produce (Produce produceAcquire) stop emit =
-  C.acquire produceAcquire $ \ (Fetch fetchIO) ->
-    join $ do
+  C.acquire produceAcquire $ \(Fetch fetchIO) ->
+    fix $ \ loop -> do
       fetch <- fetchIO
-      return $ fix $ \ loop ->
-        case fetch of
-          Nothing      -> stop
-          Just element -> emit element >> loop
+      case fetch of
+        Nothing      -> stop
+        Just element -> emit element >> loop
 
 consume :: IO (Maybe input) -> Consume input output -> IO output
 consume fetchIO (Consume consume) =
-  consume (Fetch fetchIO)
+  consume $ Fetch fetchIO
 
 {-| Fetch all the elements running the provided handler on them -}
 fetchAndHandleAll :: Fetch element -> IO () -> (element -> IO ()) -> IO ()
 fetchAndHandleAll (Fetch fetchIO) onEnd onElement =
-  join $ do
+  fix $ \ loop -> do
     fetch <- fetchIO
-    return $ fix $ \ loop ->
-      case fetch of
-        Nothing      -> onEnd
-        Just element -> onElement element >> loop
+    case fetch of
+      Nothing      -> onEnd
+      Just element -> onElement element >> loop
 
 {-| Fetch and handle just one element -}
 fetchAndHandle :: Fetch element -> IO a -> (element -> IO a) -> IO a
 fetchAndHandle (Fetch fetchIO) onEnd onElement =
-  join $ do
+  do
     fetch <- fetchIO
-    return $ case fetch of
+    case fetch of
       Nothing      -> onEnd
       Just element -> onElement element
 
