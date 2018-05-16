@@ -31,12 +31,10 @@ transform =
   testGroup "Transform" $
   [
     transformProduce
-{-
     ,
     transformChoice
     ,
     transformArrowLaws
--}
   ]
 
 transformProduce =
@@ -70,7 +68,6 @@ transformProduce =
       assertEqual "" [1, 1, 2, 2, 3, 3] result
   ]
 
-{-
 transformChoice =
   testGroup "Choice" $
   [
@@ -95,8 +92,7 @@ transformChoice =
       result <- C.produceAndTransformAndConsume (E.list list) transform D.list
       assertEqual "" [Left [4], Right 'z', Right 'a', Left [3], Right 'b', Left [0, 1], Right 'x', Left [4, 3]] result
   ]
--}
-{-
+
 transformArrowLaws =
   testGroup "Arrow laws"
   [
@@ -190,4 +186,3 @@ transformProperty name leftTransform rightTransform =
       where
         transform transform =
           unsafePerformIO (C.produceAndTransformAndConsume (E.list list) transform D.list)
--}
