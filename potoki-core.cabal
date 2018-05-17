@@ -56,9 +56,6 @@ library
     base >=4.7 && <5,
     profunctors >=5.2 && <6,
     stm >=2.4 && <3
-  ghc-options:
-    -Wall
-    -fno-warn-orphans
 
 test-suite tests
   type:
