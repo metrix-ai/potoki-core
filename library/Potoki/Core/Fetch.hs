@@ -49,6 +49,10 @@ instance MonadPlus Fetch where
   mplus =
     (<|>)
 
+instance MonadIO Fetch where
+  liftIO io =
+    Fetch (fmap Just io)
+
 {-# INLINABLE duplicate #-}
 duplicate :: Fetch element -> IO (Fetch element, Fetch element)
 duplicate (Fetch fetchIO) =

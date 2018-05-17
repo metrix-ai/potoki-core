@@ -45,6 +45,10 @@ instance Monad Produce where
           join (readIORef release2Ref) >> release1
         in return (fetch1 >>= fetch2, release3)
 
+instance MonadIO Produce where
+  liftIO io =
+    Produce (return (liftIO io))
+
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
 list inputList =
