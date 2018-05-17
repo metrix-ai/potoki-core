@@ -137,12 +137,7 @@ Execute the IO action.
 {-# INLINE executeIO #-}
 executeIO :: Transform (IO a) a
 executeIO =
-  mapFetch $ \ (Fetch fetchIO) ->
-    Fetch $ do
-      fetch <- fetchIO
-      case fetch of
-        Nothing        -> return Nothing
-        Just ioElement -> fmap Just ioElement
+  mapFetch $ \ (Fetch fetchIO) -> Fetch (join (fmap sequence fetchIO))
 
 {-# INLINE take #-}
 take :: Int -> Transform input input
