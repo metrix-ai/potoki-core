@@ -153,8 +153,8 @@ rightHandlingLeft left2IO (Fetch eitherFetchIO) =
     case eitherFetch of
       Nothing    -> return Nothing
       Just input -> case input of
-        Right !rightInput -> return $ Just rightInput
-        Left  !leftInput  -> left2IO leftInput $> Nothing
+        Right rightInput -> return $ Just rightInput
+        Left  leftInput  -> left2IO leftInput $> Nothing
 
 {-# INLINABLE rightCachingLeft #-}
 rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right
