@@ -8,12 +8,12 @@ import qualified Acquire.IO as C
 
 
 produceAndConsume :: Produce input -> Consume input output -> IO output
-produceAndConsume (Produce produceAcquire) (Consume consumeFunc) =
-  C.acquire produceAcquire consumeFunc
+produceAndConsume (Produce produceAcquire) (Consume consumeIO) =
+  C.acquire produceAcquire consumeIO
 
 produceAndTransformAndConsume :: Produce input -> Transform input anotherInput -> Consume anotherInput output -> IO output
-produceAndTransformAndConsume (Produce produceAcquire) (Transform transformAcquire) (Consume consumeFunc) =
-  C.acquire (($) <$> transformAcquire <*> produceAcquire) consumeFunc
+produceAndTransformAndConsume (Produce produceAcquire) (Transform transformAcquire) (Consume consumeIO) =
+  C.acquire (produceAcquire >>= transformAcquire) consumeIO
 
 produce :: Produce input -> forall x. IO x -> (input -> IO x) -> IO x
 produce (Produce produceAcquire) stop emit =
@@ -25,8 +25,8 @@ produce (Produce produceAcquire) stop emit =
         Just element -> emit element >> doLoop
 
 consume :: IO (Maybe input) -> Consume input output -> IO output
-consume fetchIO (Consume consumeFunc) =
-  consumeFunc $ Fetch fetchIO
+consume fetchIO (Consume consumeIO) =
+  consumeIO $ Fetch fetchIO
 
 {-| Fetch all the elements running the provided handler on them -}
 fetchAndHandleAll :: Fetch element -> IO () -> (element -> IO ()) -> IO ()

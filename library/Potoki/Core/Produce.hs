@@ -59,5 +59,4 @@ transform :: Transform input output -> Produce input -> Produce output
 transform (Transform transformAcquire) (Produce produceAcquire) =
   Produce $ do
     fetch <- produceAcquire
-    newFetch <- transformAcquire
-    return $ newFetch fetch
+    transformAcquire fetch

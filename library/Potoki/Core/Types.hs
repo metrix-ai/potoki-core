@@ -31,4 +31,4 @@ newtype Consume input output =
   Consume (Fetch input -> IO output)
 
 newtype Transform input output =
-  Transform (Acquire (Fetch input -> Fetch output))
+  Transform (Fetch input -> Acquire (Fetch output))

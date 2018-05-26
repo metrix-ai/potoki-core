@@ -94,5 +94,5 @@ sum =
 
 {-# INLINABLE transform #-}
 transform :: Transform input1 input2 -> Consume input2 output -> Consume input1 output
-transform (Transform transformAcquire) (Consume sink) =
-  Consume $ \ fetch -> B.acquire (fmap ($ fetch) transformAcquire) sink
+transform (Transform transformAcquire) (Consume consumeIO) =
+  Consume $ \ fetch -> B.acquire (transformAcquire fetch) consumeIO
