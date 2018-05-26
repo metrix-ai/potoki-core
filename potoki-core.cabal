@@ -48,8 +48,8 @@ library
     Potoki.Core.Consume
     Potoki.Core.IO
     Potoki.Core.Transform
-    Potoki.Core.Types
   other-modules:
+    Potoki.Core.Types
     Potoki.Core.Prelude
   build-depends:
     acquire >=0.2 && <0.3,
