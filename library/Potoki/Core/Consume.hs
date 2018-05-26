@@ -93,6 +93,6 @@ sum =
      in build 0
 
 {-# INLINABLE transform #-}
-transform :: Transform input output -> Consume output sinkOutput -> Consume input sinkOutput
+transform :: Transform input1 input2 -> Consume input2 output -> Consume input1 output
 transform (Transform transformAcquire) (Consume sink) =
   Consume $ \ fetch -> B.acquire (fmap ($ fetch) transformAcquire) sink
