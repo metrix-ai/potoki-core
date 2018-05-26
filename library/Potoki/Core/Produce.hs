@@ -3,7 +3,6 @@ module Potoki.Core.Produce
   Produce(..),
   list,
   transform,
-  concurrently,
 )
 where
 
@@ -62,52 +61,3 @@ transform (Transform transformAcquire) (Produce produceAcquire) =
     fetch <- produceAcquire
     newFetch <- transformAcquire
     return $ newFetch fetch
-
-{-|
-Squash multiple produces into a single one, which prefetches elements from all
-on concurrent threads.
--}
-{-# INLINABLE concurrently #-}
-concurrently :: [Produce a] -> Produce a
-concurrently produces =
-  Produce $ Acquire $ do
-    let Acquire fetchesAcquireIO = traverse (\ (Produce acquire) -> acquire) produces
-    (fetches, releaseFetches) <- fetchesAcquireIO
-    activeVar <- newTVarIO True
-    outputVar <- newEmptyTMVarIO
-    unfinishedFetchesVar <- newTVarIO (length fetches)
-    let
-      decrementUnfinishedFetches =
-        do
-          unfinishedFetches <- readTVar unfinishedFetchesVar
-          writeTVar unfinishedFetchesVar $! pred unfinishedFetches
-      ensureNoUnfinishedFetchesIsLeft =
-        do
-          unfinishedFetches <- readTVar unfinishedFetchesVar
-          guard (unfinishedFetches == 0)
-    forM_ fetches $ \ (Fetch fetchIO) -> forkIO $ fix $ \ loop -> do
-      fetchingResult <- fetchIO
-      case fetchingResult of
-        Nothing -> atomically decrementUnfinishedFetches
-        Just element -> join $ atomically $ do
-          active <- readTVar activeVar
-          if active
-            then do
-              putTMVar outputVar element
-              return loop
-            else do
-              decrementUnfinishedFetches
-              return (return ())
-    let
-      release = do
-        atomically $ writeTVar activeVar False
-        atomically $ ensureNoUnfinishedFetchesIsLeft
-        releaseFetches
-      newFetch =
-        let
-          takeOutput =
-            Just <$> takeTMVar outputVar
-          signalEnd =
-            Nothing <$ ensureNoUnfinishedFetchesIsLeft
-          in Fetch $ atomically $ takeOutput <|> signalEnd
-      in return (newFetch, release)
