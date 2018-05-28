@@ -1,64 +1,67 @@
-module Potoki.Core.Consume where
+module Potoki.Core.Consume
+(
+  Consume(..),
+  apConcurrently,
+  list,
+  sum,
+  transform,
+)
+where
 
-import Potoki.Core.Prelude
+import Potoki.Core.Prelude hiding (sum)
+import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Potoki.Core.Transform.Types as B
+import qualified Acquire.IO as B
 
-
-{-|
-Active consumer of input into output.
-Sort of like a reducer in Map/Reduce.
-
-Automates the management of resources.
--}
-newtype Consume input output =
-  {-|
-  An action, which executes the provided fetch in IO,
-  while managing the resources behind the scenes.
-  -}
-  Consume (A.Fetch input -> IO output)
 
 instance Profunctor Consume where
   {-# INLINE dimap #-}
   dimap inputMapping outputMapping (Consume consume) =
-    Consume (\ fetch -> fmap outputMapping (consume (fmap inputMapping fetch)))
+    Consume (\ fetch -> fmap outputMapping (consume $ fmap inputMapping fetch))
 
 instance Choice Consume where
+  right' :: Consume a b -> Consume (Either c a) (Either c b)
   right' (Consume rightConsumeIO) =
-    Consume $ \ (A.Fetch eitherFetchIO) -> do
-      fetchedLeftMaybeRef <- newIORef Nothing
-      consumedRight <- 
-        rightConsumeIO $ A.Fetch $ \ nil just -> join $ eitherFetchIO (return nil) $ \ case
-          Right !fetchedRight -> return (just fetchedRight)
-          Left !fetchedLeft -> writeIORef fetchedLeftMaybeRef (Just fetchedLeft) >> return nil
-      fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
-      case fetchedLeftMaybe of
-        Nothing -> return (Right consumedRight)
-        Just fetchedLeft -> return (Left fetchedLeft)
+     Consume $ \ (Fetch eitherFetchIO) -> do
+       fetchedLeftMaybeRef <- newIORef Nothing
+       consumedRight <-
+         rightConsumeIO $ Fetch $ do
+           eitherFetch <- eitherFetchIO
+           case eitherFetch of
+             Nothing      -> return Nothing
+             Just element -> case element of
+               Right fetchedRight -> return $ Just fetchedRight
+               Left  fetchedLeft  -> do
+                 writeIORef fetchedLeftMaybeRef $ Just fetchedLeft
+                 return Nothing
+       fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
+       case fetchedLeftMaybe of
+         Nothing          -> return $ Right consumedRight
+         Just fetchedLeft -> return $ Left fetchedLeft 
 
 instance Functor (Consume input) where
   fmap = rmap
 
 instance Applicative (Consume a) where
-  pure x = Consume $ \_ -> pure x
+  pure x = Consume $ \ _ -> pure x
 
   Consume leftConsumeIO <*> Consume rightConsumeIO =
-    Consume $ \fetch -> leftConsumeIO fetch <*> rightConsumeIO fetch
+    Consume $ \ fetch -> leftConsumeIO fetch <*> rightConsumeIO fetch
 
 instance Monad (Consume a) where
-  Consume leftConsumeIO >>= toRightConsumeIO = Consume $ \fetch -> do
+  Consume leftConsumeIO >>= toRightConsumeIO = Consume $ \ fetch -> do
     Consume rightConsumeIO <- toRightConsumeIO <$> leftConsumeIO fetch
     rightConsumeIO fetch
 
 instance MonadIO (Consume a) where
-  liftIO a = Consume $ \_ -> a
+  liftIO a = Consume $ \ _ -> a
 
 apConcurrently :: Consume a (b -> c) -> Consume a b -> Consume a c
 apConcurrently (Consume leftConsumeIO) (Consume rightConsumeIO) =
   Consume $ \ fetch -> do
     (leftFetch, rightFetch) <- A.duplicate fetch
     rightOutputVar <- newEmptyMVar
-    forkIO $ do
+    _ <- forkIO $ do
       !rightOutput <- rightConsumeIO rightFetch
       putMVar rightOutputVar rightOutput
     !leftOutput <- leftConsumeIO leftFetch
@@ -68,28 +71,28 @@ apConcurrently (Consume leftConsumeIO) (Consume rightConsumeIO) =
 {-# INLINABLE list #-}
 list :: Consume input [input]
 list =
-  Consume $ \ (A.Fetch fetchIO) ->
-  let
-    build !acc =
-      join
-        (fetchIO
-          (pure (acc []))
-          (\ !element -> build (acc . (:) element)))
-    in build id
+  Consume $ \ (Fetch fetchIO) ->
+    let 
+      build !acc = do
+        fetch <- fetchIO
+        case fetch of
+          Nothing       -> pure $ acc []
+          Just !element -> build $ acc . (:) element
+     in build id
 
 {-# INLINE sum #-}
 sum :: Num num => Consume num num
 sum =
-  Consume $ \ (A.Fetch fetchIO) ->
-  let
-    build !acc =
-      join
-        (fetchIO
-          (pure acc)
-          (\ !element -> build (element + acc)))
-    in build 0
+  Consume $ \ (Fetch fetchIO) ->
+    let
+      build !acc = do
+        fetch <- fetchIO
+        case fetch of
+          Nothing       -> pure acc
+          Just !element -> build $ element + acc
+     in build 0
 
 {-# INLINABLE transform #-}
-transform :: B.Transform input output -> Consume output sinkOutput -> Consume input sinkOutput
-transform (B.Transform transform) (Consume sink) =
-  Consume (transform >=> sink)
+transform :: Transform input1 input2 -> Consume input2 output -> Consume input1 output
+transform (Transform transformAcquire) (Consume consumeIO) =
+  Consume $ \ fetch -> B.acquire (transformAcquire fetch) consumeIO

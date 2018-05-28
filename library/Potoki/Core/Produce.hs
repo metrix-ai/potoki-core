@@ -1,50 +1,62 @@
-module Potoki.Core.Produce where
+module Potoki.Core.Produce
+(
+  Produce(..),
+  list,
+  transform,
+)
+where
 
 import Potoki.Core.Prelude
+import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Potoki.Core.Transform.Types as B
 
-
-{-|
-Passive producer of elements with support for early termination.
-
-Automates the management of resources.
--}
-newtype Produce element =
-  Produce (IO (A.Fetch element, IO ()))
 
 deriving instance Functor Produce
 
 instance Applicative Produce where
   pure x = Produce $ do
-    refX <- newIORef (Just x)
-    return (A.maybeRef refX, pure ())
-  (<*>) (Produce leftIO) (Produce rightIO) =
-    Produce $ do
-      (leftFetch, leftKill) <- leftIO
-      (rightFetch, rightKill) <- rightIO
-      return (leftFetch <*> rightFetch, leftKill >> rightKill)
+    refX <- liftIO (newIORef (Just x))
+    return (A.maybeRef refX)
+  (<*>) (Produce leftAcquire) (Produce rightAcquire) =
+    Produce ((<*>) <$> leftAcquire <*> rightAcquire)
 
 instance Alternative Produce where
   empty =
-    Produce (pure (empty, pure ()))
-  (<|>) (Produce leftIO) (Produce rightIO) =
-    Produce $ do
-      (leftFetch, leftKill) <- leftIO
-      (rightFetch, rightKill) <- rightIO
-      return (leftFetch <|> rightFetch, leftKill >> rightKill)
+    Produce (pure empty)
+  (<|>) (Produce leftAcquire) (Produce rightAcquire) =
+    Produce ((<|>) <$> leftAcquire <*> rightAcquire)
+
+instance Monad Produce where
+  return = pure
+  (>>=) (Produce (Acquire io1)) k2 =
+    Produce $ Acquire $ do
+      (fetch1, release1) <- io1
+      release2Ref <- newIORef (return ())
+      let
+        fetch2 input1 =
+          case k2 input1 of
+            Produce (Acquire io2) ->
+              A.ioFetch $ do
+                join (readIORef release2Ref)
+                (fetch2', release2') <- io2
+                writeIORef release2Ref release2'
+                return fetch2'
+        release3 =
+          join (readIORef release2Ref) >> release1
+        in return (fetch1 >>= fetch2, release3)
+
+instance MonadIO Produce where
+  liftIO io =
+    Produce (return (liftIO io))
 
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
-list list =
-  Produce $ do
-    unsentListRef <- newIORef list
-    return (A.list unsentListRef, return ())
+list inputList =
+  Produce $ liftIO (A.list <$> newIORef inputList)
 
 {-# INLINE transform #-}
-transform :: B.Transform input output -> Produce input -> Produce output
-transform (B.Transform transformIO) (Produce produceIO) =
+transform :: Transform input output -> Produce input -> Produce output
+transform (Transform transformAcquire) (Produce produceAcquire) =
   Produce $ do
-    (fetch, kill) <- produceIO
-    newFetch <- transformIO fetch
-    return (newFetch, kill)
+    fetch <- produceAcquire
+    transformAcquire fetch

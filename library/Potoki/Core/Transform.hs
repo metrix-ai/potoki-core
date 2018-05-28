@@ -10,57 +10,50 @@ module Potoki.Core.Transform
 where
 
 import Potoki.Core.Prelude hiding (take)
-import Potoki.Core.Transform.Types
+import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Potoki.Core.Consume as C
-import qualified Potoki.Core.Produce as D
 
 
 instance Category Transform where
   id =
-    Transform return
-  (.) (Transform leftFetchIO) (Transform rightFetchIO) =
-    Transform (leftFetchIO <=< rightFetchIO)
+    Transform (return)
+  (.) (Transform left) (Transform right) =
+    Transform (left <=< right)
 
 instance Profunctor Transform where
-  dimap inputMapping outputMapping (Transform fetchIO) =
-    Transform (\ inputFetch -> (fmap . fmap) outputMapping (fetchIO (fmap inputMapping inputFetch)))
+  dimap inputMapping outputMapping (Transform acquire) =
+    Transform $ \ oldFetch -> do
+      newFetch <- acquire (fmap inputMapping oldFetch)
+      return $ fmap outputMapping newFetch
 
 instance Choice Transform where
-  right' (Transform rightTransformIO) =
-    Transform $ \ eitherFetch -> do
-      fetchedLeftMaybeRef <- newIORef Nothing
-      rightFetchMaybeRef <- newIORef Nothing
-      return $ A.Fetch $ \ nil just -> do
-        A.Fetch rightFetchIO <- do
-          rightFetchMaybe <- readIORef rightFetchMaybeRef
-          case rightFetchMaybe of
-            Just rightFetch -> return rightFetch
-            Nothing -> do
-              rightFetch <- rightTransformIO (A.rightCachingLeft fetchedLeftMaybeRef eitherFetch)
-              writeIORef rightFetchMaybeRef (Just rightFetch)
-              return rightFetch
-        join $ rightFetchIO
-          (do
-            fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
-            case fetchedLeftMaybe of
-              Just fetchedLeft -> do
-                writeIORef fetchedLeftMaybeRef Nothing
-                writeIORef rightFetchMaybeRef Nothing
-                return (just (Left fetchedLeft))
-              Nothing -> return nil)
-          (\ right -> return (just (Right right)))
+  right' :: Transform a b -> Transform (Either c a) (Either c b)
+  right' (Transform rightTransformAcquire) =
+    Transform $ \ inFetch -> do
+      fetchedLeftMaybeRef <- liftIO $ newIORef Nothing
+      Fetch rightFetchIO <- rightTransformAcquire (A.rightHandlingLeft (writeIORef fetchedLeftMaybeRef . Just) inFetch)
+      return $ Fetch $ do
+          rightFetch <- rightFetchIO
+          case rightFetch of
+            Nothing    -> do
+              fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
+              case fetchedLeftMaybe of
+                Nothing          -> return Nothing
+                Just fetchedLeft -> do
+                  writeIORef fetchedLeftMaybeRef Nothing
+                  return $ Just (Left fetchedLeft)
+            Just element -> return $ Just (Right element)
 
 instance Strong Transform where
-  first' (Transform firstTransformIO) =
-    Transform $ \ bothFetch -> do
-      stateRef <- newIORef undefined
-      firstFetch <- firstTransformIO (A.firstCachingSecond stateRef bothFetch)
-      return $ A.bothFetchingFirst stateRef firstFetch
+  first' (Transform firstTransformAcquire) =
+    Transform $ \ inFetch -> do
+      cacheRef <- liftIO $ newIORef undefined
+      outFetch <- firstTransformAcquire (A.firstCachingSecond cacheRef inFetch)
+      return $ A.bothFetchingFirst cacheRef outFetch
 
 instance Arrow Transform where
   arr fn =
-    Transform (pure . fmap fn)
+    Transform (return . fmap fn)
   first =
     first'
 
@@ -69,57 +62,69 @@ instance ArrowChoice Transform where
     left'
 
 {-# INLINE consume #-}
-consume :: C.Consume input output -> Transform input output
-consume (C.Consume runFetch) =
-  Transform $ \ (A.Fetch fetch) -> do
-    stoppedRef <- newIORef False
-    return $ A.Fetch $ \ nil just -> do
+consume :: Consume input output -> Transform input output
+consume (Consume runFetch) =
+  Transform $ \ (Fetch inputIO) -> do
+    stoppedRef <- liftIO $ newIORef False
+    return $ Fetch $ do
       stopped <- readIORef stoppedRef
       if stopped
-        then return nil
+        then do
+          writeIORef stoppedRef False
+          return Nothing
         else do
           emittedRef <- newIORef False
-          output <-
-            runFetch $ A.Fetch $ \ inputNil inputJust ->
-            join
-              (fetch
-                (do
-                  writeIORef stoppedRef True
-                  return inputNil)
-                (\ !input -> do
-                  writeIORef emittedRef True
-                  return (inputJust input)))
-          stopped <- readIORef stoppedRef
-          if stopped
+          output <- runFetch $ Fetch $ do
+            input <- inputIO
+            case input of
+              Nothing     -> do
+                writeIORef stoppedRef True
+                return Nothing
+              Just element -> do
+                writeIORef emittedRef True
+                return $ Just element
+          checkStopped <- readIORef stoppedRef
+          if checkStopped
             then do
               emitted <- readIORef emittedRef
               if emitted
-                then return (just output)
-                else return nil
-            else return (just output)
+                then return $ Just output
+                else do
+                  writeIORef stoppedRef False
+                  return Nothing
+            else return $ Just output
 
 {-# INLINABLE produce #-}
-produce :: (input -> D.Produce output) -> Transform input output
+produce :: (input -> Produce output) -> Transform input output
 produce inputToProduce =
-  Transform $ \ (A.Fetch inputFetchIO) -> do
-    stateRef <- newIORef Nothing
-    return $ A.Fetch $ \ nil just -> fix $ \ loop -> do
+  Transform $ \ (Fetch inputFetchIO) -> do
+    stateRef <- liftIO $ newIORef Nothing
+    return $ Fetch $ fix $ \ doLoop -> do
       state <- readIORef stateRef
       case state of
-        Just (A.Fetch outputFetchIO, kill) ->
-          join $ outputFetchIO
-            (kill >> writeIORef stateRef Nothing >> loop)
-            (return . just)
+        Just (Fetch outputFetchIO, kill) ->
+          do
+            outputFetchResult <- outputFetchIO
+            case outputFetchResult of
+              Just x -> return (Just x)
+              Nothing -> do
+                kill
+                writeIORef stateRef Nothing
+                doLoop
         Nothing ->
-          join $ inputFetchIO (return nil) $ \ !input -> do
-            case inputToProduce input of
-              D.Produce produceIO -> do
-                fetchAndKill <- produceIO
-                writeIORef stateRef (Just fetchAndKill)
-                loop
+          do
+            inputFetchResult <- inputFetchIO
+            case inputFetchResult of
+              Just input -> do
+                case inputToProduce input of
+                  Produce (Acquire produceIO) -> do
+                    fetchAndKill <- produceIO
+                    writeIORef stateRef (Just fetchAndKill)
+                    doLoop
+              Nothing -> return Nothing
 
 {-# INLINE mapFetch #-}
-mapFetch :: (A.Fetch a -> A.Fetch b) -> Transform a b
+mapFetch :: (Fetch a -> Fetch b) -> Transform a b
 mapFetch mapping =
   Transform $ return . mapping
 
@@ -129,18 +134,21 @@ Execute the IO action.
 {-# INLINE executeIO #-}
 executeIO :: Transform (IO a) a
 executeIO =
-  mapFetch $ \ (A.Fetch fetchIO) -> A.Fetch $ \ nil just ->
-  join (fetchIO (return nil) (fmap just))
+  mapFetch $ \ (Fetch fetchIO) -> Fetch (fetchIO >>= sequence)
 
 {-# INLINE take #-}
 take :: Int -> Transform input input
-take amount =
-  Transform $ \ (A.Fetch fetchIO) -> do
-    countRef <- newIORef amount
-    return $ A.Fetch $ \ nil just -> do
-      count <- readIORef countRef
-      if count > 0
-        then do
-          writeIORef countRef $! pred count
-          fetchIO nil just
-        else return nil
+take amount
+  | amount <= 0 =
+    Transform $ \ _ -> return $ Fetch $ return Nothing
+  | otherwise   =
+    Transform $ \ (Fetch fetchIO) -> do
+      countRef <- liftIO $ newIORef amount
+      return $ Fetch $ do
+        count <- readIORef countRef
+        if count > 0
+          then do
+            modifyIORef countRef pred
+            fetchIO
+          else
+            return Nothing
