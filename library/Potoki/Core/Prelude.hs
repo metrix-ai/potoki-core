@@ -68,6 +68,10 @@ import Text.Printf as Exports (printf, hPrintf)
 import Text.Read as Exports (Read(..), readMaybe, readEither)
 import Unsafe.Coerce as Exports
 
+-- bytestring
+-------------------------
+import Data.ByteString as Exports (ByteString)
+
 -- profunctors
 -------------------------
 import Data.Profunctor.Unsafe as Exports

@@ -3,6 +3,7 @@ module Potoki.Core.Produce where
 import Potoki.Core.Prelude
 import qualified Potoki.Core.Fetch as A
 import qualified Potoki.Core.Transform.Types as B
+import qualified Data.ByteString.Lazy as C
 
 
 {-|
@@ -47,3 +48,10 @@ transform (B.Transform transformIO) (Produce produceIO) =
     (fetch, kill) <- produceIO
     newFetch <- transformIO fetch
     return (newFetch, kill)
+
+{-# INLINE lazyByteString #-}
+lazyByteString :: C.ByteString -> Produce ByteString
+lazyByteString lbs =
+  Produce $ do
+    ref <- newIORef lbs
+    return (A.lazyByteStringRef ref, return ())

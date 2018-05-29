@@ -1,6 +1,8 @@
 module Potoki.Core.Fetch where
 
 import Potoki.Core.Prelude
+import qualified Data.ByteString.Lazy as A
+import qualified Data.ByteString.Lazy.Internal as A
 
 
 {-|
@@ -140,3 +142,15 @@ eitherFetchingRight stateRef (Fetch rightFetchIO) =
 ioMaybe :: IO (Maybe a) -> Fetch a
 ioMaybe io =
   Fetch $ \nil just -> maybe nil just <$> io
+
+{-# INLINE lazyByteStringRef #-}
+lazyByteStringRef :: IORef A.ByteString -> Fetch ByteString
+lazyByteStringRef ref =
+  Fetch $ \ nil just ->
+  do
+    lazyByteString <- readIORef ref
+    case lazyByteString of
+      A.Chunk chunk remainders -> do
+        writeIORef ref remainders
+        return (just chunk)
+      A.Empty -> return nil
