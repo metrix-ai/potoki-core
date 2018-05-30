@@ -11,11 +11,30 @@ module Potoki.Core.Fetch
   eitherFetchingRight,
   signaling,
   ioFetch,
+  handleBytes,
+  handleBytesWithChunkSize,
+  handleText,
+  mapFilter,
+  filter,
+  just,
+  takeWhile,
+  infiniteMVar,
+  finiteMVar,
+  vector,
+  handlingElements,
 )
 where
 
-import Potoki.Core.Prelude
+import Potoki.Core.Prelude hiding (filter, takeWhile)
 import Potoki.Core.Types
+import qualified Data.Attoparsec.Types as I
+import qualified Data.Attoparsec.ByteString as K
+import qualified Data.Attoparsec.Text as L
+import qualified Data.HashMap.Strict as B
+import qualified Data.Vector as C
+import qualified Data.ByteString as D
+import qualified Data.Text as A
+import qualified Data.Text.IO as A
 
 
 deriving instance Functor Fetch
@@ -191,3 +210,100 @@ ioFetch fetchIO =
   Fetch $ do
     Fetch fetch <- fetchIO
     fetch
+
+{-# INLINABLE handleBytes #-}
+handleBytes :: Handle -> Fetch (Either IOException ByteString)
+handleBytes =
+  handleBytesWithChunkSize ioChunkSize
+
+{-# INLINABLE handleBytesWithChunkSize #-}
+handleBytesWithChunkSize :: Int -> Handle -> Fetch (Either IOException ByteString)
+handleBytesWithChunkSize chunkSize handle =
+  Fetch $ do
+    chunk <- try (D.hGetSome handle chunkSize)
+    case chunk of
+      Right "" -> return Nothing
+      _ -> return (Just chunk)
+
+{-# INLINABLE handleText #-}
+handleText :: Handle -> Fetch (Either IOException Text)
+handleText handle =
+  Fetch $ do
+    chunk <- try (A.hGetChunk handle)
+    case chunk of
+      Right "" -> return Nothing
+      _ -> return (Just chunk)
+
+{-# INLINABLE mapFilter #-}
+mapFilter :: (input -> Maybe output) -> Fetch input -> Fetch output
+mapFilter mapping (Fetch fetchIO) =
+  Fetch $ 
+  fix $ \ loop -> do 
+    fetch <- fetchIO
+    case mapping <$> fetch of
+      Just (Just output) -> return (Just output)
+      Just Nothing -> loop
+      Nothing -> return Nothing
+
+{-# INLINABLE filter #-}
+filter :: (input -> Bool) -> Fetch input -> Fetch input
+filter predicate (Fetch fetchIO) =
+  Fetch $ 
+  fix $ \ loop -> do 
+    fetch <- fetchIO
+    case predicate <$> fetch of
+      Just True -> return fetch
+      Just False -> loop
+      Nothing -> return Nothing
+
+
+{-# INLINABLE just #-}
+just :: Fetch (Maybe element) -> Fetch element
+just (Fetch fetchIO) =
+  Fetch $ 
+  fix $ \ loop -> do 
+    fetch <- fetchIO
+    case fetch of
+      Just (Just element) -> return (Just element)
+      Just (Nothing) -> loop
+      Nothing -> return Nothing
+
+{-# INLINABLE takeWhile #-}
+takeWhile :: (element -> Bool) -> Fetch element -> Fetch element
+takeWhile predicate (Fetch fetchIO) =
+  Fetch $ do
+    fetch <- fetchIO
+    case predicate <$> fetch of
+      Just True -> return fetch
+      _ -> return Nothing
+
+{-# INLINABLE infiniteMVar #-}
+infiniteMVar :: MVar element -> Fetch element
+infiniteMVar var =
+  Fetch $ fmap Just $ takeMVar var
+
+{-# INLINABLE finiteMVar #-}
+finiteMVar :: MVar (Maybe element) -> Fetch element
+finiteMVar var =
+  Fetch $ takeMVar var
+
+{-# INLINABLE vector #-}
+vector :: IORef Int -> Vector element -> Fetch element
+vector indexRef vector =
+  Fetch $ do
+    index <- readIORef indexRef
+    if index < C.length vector
+      then do
+        writeIORef indexRef (succ index)
+        return (Just (C.unsafeIndex vector index))
+      else return Nothing
+
+{-# INLINABLE handlingElements #-}
+handlingElements :: (element -> IO ()) -> Fetch element -> Fetch element
+handlingElements xRay (Fetch fetchIO) =
+  Fetch $ do
+    mbElement <- fetchIO
+    case mbElement of
+      Just element -> xRay element $> mbElement
+      Nothing -> return Nothing
+    
