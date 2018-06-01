@@ -29,7 +29,6 @@ which are strictly separated by newline no matter how long they may be.
 extractLines :: Transform ByteString ByteString
 extractLines =
   lineList >>> filter (not . null) >>> list
-  -- lineList >>> list
   where
     lineList =
       Transform $ \ (A.Fetch fetchIO) -> M.Acquire $ do

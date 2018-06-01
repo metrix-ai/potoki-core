@@ -1,7 +1,6 @@
 module Potoki.Core.Transform
 (
   Transform(..),
-  module Instances,
   consume,
   produce,
   mapFetch,
@@ -45,7 +44,6 @@ import Potoki.Core.Types
 import Potoki.Core.Transform.Basic
 import Potoki.Core.Transform.FileIO
 import Potoki.Core.Transform.ByteString
-import Potoki.Core.Transform.Instances as Instances
 import qualified Potoki.Core.Transform.Attoparsec as A
 import qualified Potoki.Core.Transform.Concurrency as N
 import qualified Potoki.Core.Transform.State as R

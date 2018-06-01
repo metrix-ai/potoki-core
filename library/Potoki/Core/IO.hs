@@ -1,5 +1,4 @@
 module Potoki.Core.IO (
-  module Fetch,
   produceAndConsume,
   produceAndTransformAndConsume,
   produce,
@@ -12,7 +11,7 @@ import Potoki.Core.Types
 import qualified Potoki.Core.Produce as A
 import qualified Potoki.Core.Consume as B
 import qualified Acquire.IO as C
-import qualified Potoki.Core.IO.Fetch as Fetch
+
 
 produceAndConsume :: Produce input -> Consume input output -> IO output
 produceAndConsume (Produce produceAcquire) (Consume consumeIO) =
