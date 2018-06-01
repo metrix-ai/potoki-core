@@ -1,6 +1,9 @@
 module Potoki.Core.Prelude
 ( 
   module Exports,
+  ioChunkSize,
+  textString,
+  unsnoc,
 )
 where
 
@@ -32,11 +35,10 @@ import Data.IORef as Exports
 import Data.Ix as Exports
 import Data.List as Exports hiding (sortOn, isSubsequenceOf, uncons, concat, foldr, foldl1, maximum, minimum, product, sum, all, and, any, concatMap, elem, foldl, foldr1, notElem, or, find, maximumBy, minimumBy, mapAccumL, mapAccumR, foldl')
 import Data.Maybe as Exports
-import Data.Monoid as Exports hiding (Last(..), (<>), First(..))
+import Data.Monoid as Exports hiding (Last(..), First(..))
 import Data.Ord as Exports
 import Data.Proxy as Exports
 import Data.Ratio as Exports
-import Data.Semigroup as Exports
 import Data.STRef as Exports
 import Data.String as Exports
 import Data.Traversable as Exports
@@ -57,7 +59,7 @@ import Numeric as Exports
 import Prelude as Exports hiding (concat, foldr, mapM_, sequence_, foldl1, maximum, minimum, product, sum, all, and, any, concatMap, elem, foldl, foldr1, notElem, or, mapM, sequence, id, (.))
 import System.Environment as Exports
 import System.Exit as Exports
-import System.IO as Exports (Handle, hClose)
+import System.IO as Exports
 import System.IO.Error as Exports
 import System.IO.Unsafe as Exports
 import System.Mem as Exports
@@ -82,3 +84,50 @@ import Control.Concurrent.STM as Exports
 -- acquire
 -------------------------
 import Acquire.Acquire as Exports
+
+-- text
+-------------------------
+import Data.Text as Exports (Text)
+
+-- bytestring
+-------------------------
+import Data.ByteString as Exports (ByteString)
+
+-- unordered-containers
+-------------------------
+import Data.HashMap.Strict as Exports (HashMap)
+
+-- vector
+-------------------------
+import Data.Vector as Exports (Vector)
+
+-- hashable
+-------------------------
+import Data.Hashable as Exports (Hashable)
+
+--------------------------------------------------------------------------------
+
+import qualified Data.Text as A
+
+{-# NOINLINE ioChunkSize #-}
+ioChunkSize :: Int
+ioChunkSize =
+  shiftL 2 12
+
+textString :: Text -> String
+textString =
+  A.unpack
+
+{-# INLINABLE unsnoc #-}
+unsnoc :: [a] -> Maybe ([a], a)
+unsnoc listVal =
+  case process listVal of
+    (initVal, lastMaybe) -> fmap (\ lastVal -> (initVal, lastVal)) lastMaybe
+  where
+    process listVal' =
+      case listVal' of
+        headVal : tailVal -> case tailVal of
+          [] -> ([], Just headVal)
+          _ -> case process tailVal of
+            (initVal, lastMaybe) -> (headVal : initVal, lastMaybe)
+        _ -> ([], Nothing)
