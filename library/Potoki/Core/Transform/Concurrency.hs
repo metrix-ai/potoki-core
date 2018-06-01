@@ -7,23 +7,25 @@ module Potoki.Core.Transform.Concurrency
 where
 
 import Potoki.Core.Prelude hiding (take, takeWhile, filter)
-import Potoki.Core.Transform.Instances
+import Potoki.Core.Transform.Instances ()
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Control.Concurrent.Chan.Unagi.Bounded as B
 import qualified Acquire.Acquire as M
 
 
 {-# INLINE bufferize #-}
 bufferize :: Int -> Transform element element
-bufferize size = undefined
+bufferize = undefined
+{-
+bufferize size =
   Transform $ \ (A.Fetch fetch) -> M.Acquire $ do
     (inChan, outChan) <- B.newChan size
-    forkIO $ fix $ \ loop ->
+    forkIO $ fix $ \ doLoop ->
       fetch >>= \case
         Nothing -> B.writeChan inChan Nothing
-        Just !element -> B.writeChan inChan (Just element) >> loop
+        Just !element -> B.writeChan inChan (Just element) >> doLoop
     return $ (A.Fetch $ B.readChan outChan, return ())
+-}
 
 {-|
 Identity Transform, which ensures that the inputs are fetched synchronously.
@@ -70,11 +72,11 @@ concurrentlyUnsafe workersAmount (Transform syncTransformIO) =
     replicateM_ workersAmount $ forkIO $ do
       let runAcquire (M.Acquire io) = io
       (A.Fetch fetchIO, _) <- runAcquire $ syncTransformIO fetch
-      fix $ \ loop -> fetchIO >>= \case
+      fix $ \ doLoop -> fetchIO >>= \case
         Nothing -> putMVar outChan Nothing
-        Just !result -> putMVar outChan (Just result) >> loop
+        Just !result -> putMVar outChan (Just result) >> doLoop
     activeWorkersAmountVar <- newMVar workersAmount
-    return $ (, return ()) $ A.Fetch $ fix $ \ loop -> do
+    return $ (, return ()) $ A.Fetch $ fix $ \ doLoop' -> do
       activeWorkersAmount <- takeMVar activeWorkersAmountVar
       if activeWorkersAmount <= 0
         then return Nothing
@@ -86,7 +88,7 @@ concurrentlyUnsafe workersAmount (Transform syncTransformIO) =
               return (Just result)
             Nothing -> do
               putMVar activeWorkersAmountVar (pred activeWorkersAmount)
-              loop
+              doLoop'
 
 {-|
 A transform, which fetches the inputs asynchronously on the specified number of threads.
@@ -95,7 +97,7 @@ async :: Int -> Transform input input
 async workersAmount = 
   Transform $ \ (A.Fetch fetchIO) -> M.Acquire $ do
     chan <- newEmptyMVar 
-    replicateM_ workersAmount $ forkIO $ fix $ \ loop -> do
+    replicateM_ workersAmount $ forkIO $ fix $ \ _ -> do
       fetchResult <- fetchIO
       putMVar chan fetchResult
     return (A.finiteMVar chan, return ())

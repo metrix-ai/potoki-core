@@ -2,8 +2,6 @@ module Potoki.Core.Transform.Attoparsec
 where
 
 import Potoki.Core.Prelude hiding (take, takeWhile, filter, drop)
-import Potoki.Core.Transform.Instances
-import Potoki.Core.Transform.Basic
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Data.Attoparsec.ByteString as K
@@ -43,8 +41,8 @@ mapWithParseResult inputToResult =
         matchResult :: M.IResult input parsed -> IO (Maybe (Either Text parsed))
         matchResult =
           \case
-            M.Partial inputToResult ->
-              consume inputToResult
+            M.Partial inputToResultVal ->
+              consumeVal inputToResultVal
             M.Done unconsumed parsed ->
               do
                 writeIORef unconsumedRef unconsumed
@@ -59,14 +57,14 @@ mapWithParseResult inputToResult =
                   if null contexts
                     then fromString message
                     else fromString (showString (intercalate " > " contexts) (showString ": " message))
-        consume inputToResult =
+        consumeVal inputToResultVal' =
           inputFetchIO >>= \case
             Nothing -> do
               writeIORef finishedRef True
-              matchResult (inputToResult mempty)
+              matchResult (inputToResultVal' mempty)
             Just input -> do
               when (input == mempty) (writeIORef finishedRef True)
-              matchResult (inputToResult input)
+              matchResult (inputToResultVal' input)
 
 {-|
 Lift an Attoparsec ByteString parser.

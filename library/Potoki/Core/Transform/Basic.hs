@@ -2,13 +2,12 @@ module Potoki.Core.Transform.Basic
 where
 
 import Potoki.Core.Prelude hiding (take, takeWhile, filter, drop)
-import Potoki.Core.Transform.Instances
-import Control.Monad.IO.Class
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Data.HashSet as C
 import qualified Data.Vector as P
 import qualified Acquire.Acquire as M
+
 
 {-# INLINE mapFilter #-}
 mapFilter :: (input -> Maybe output) -> Transform input output
@@ -36,12 +35,12 @@ drop amount =
   Transform $ \ (A.Fetch fetchIO) -> M.Acquire $ do
     countRef <- newIORef amount
     return $ (, return ()) $ 
-      A.Fetch $ fix $ \ loop -> do
+      A.Fetch $ fix $ \ doLoop -> do
         count <- readIORef countRef
         if count > 0
           then do
             writeIORef countRef $! pred count
-            loop
+            doLoop
           else fetchIO
 
 {-# INLINE list #-}
@@ -53,17 +52,17 @@ list =
       A.Fetch $ do
         buffer <- readIORef bufferRef
         case buffer of
-          head : tail -> do
-            writeIORef bufferRef tail
-            return (Just head)
+          headVal : tailVal -> do
+            writeIORef bufferRef tailVal
+            return (Just headVal)
           _ ->
             let
               fetchElementIO = do
                 fetchListIO >>= \case
                   Nothing -> return Nothing
-                  Just (head : tail) -> do
-                    writeIORef bufferRef tail
-                    return (Just head)
+                  Just (headVal : tailVal) -> do
+                    writeIORef bufferRef tailVal
+                    return (Just headVal)
                   _ -> do
                     writeIORef bufferRef []
                     return Nothing
@@ -76,18 +75,18 @@ vector =
     indexRef <- newIORef 0
     vectorRef <- newIORef mempty
     return $ (, return ()) $ 
-      A.Fetch $ fix $ \ loop -> do
-        vector <- readIORef vectorRef
-        index <- readIORef indexRef
-        if index < P.length vector
+      A.Fetch $ fix $ \ doLoop -> do
+        vectorVal <- readIORef vectorRef
+        indexVal <- readIORef indexRef
+        if indexVal < P.length vectorVal
           then do
-            writeIORef indexRef (succ index)
-            return (Just (P.unsafeIndex vector index))
+            writeIORef indexRef (succ indexVal)
+            return (Just (P.unsafeIndex vectorVal indexVal))
           else fetchVectorIO >>= \case 
-            Just vector -> do
-              writeIORef vectorRef vector
+            Just vectorVal' -> do
+              writeIORef vectorRef vectorVal'
               writeIORef indexRef 0
-              loop
+              doLoop
             Nothing -> return Nothing
 
 {-# INLINE distinctBy #-}
@@ -96,14 +95,14 @@ distinctBy f =
   Transform $ \ (A.Fetch fetch) -> M.Acquire $ do
     stateRef <- newIORef mempty
     return $ (, return ()) $ 
-      A.Fetch $ fix $ \ loop -> 
+      A.Fetch $ fix $ \ doLoop -> 
         fetch >>= \case 
           Nothing -> return Nothing
           Just input -> do
             let comparable = f input
             !set <- readIORef stateRef
             if C.member comparable set
-              then loop
+              then doLoop
               else do
                 writeIORef stateRef $! C.insert comparable set
                 return (Just input)
@@ -130,12 +129,12 @@ ioTransform io =
 Useful for debugging
 -}
 traceWithCounter :: (Int -> String) -> Transform a a
-traceWithCounter show =
+traceWithCounter showFunc =
   ioTransform $ do
     counter <- newIORef 0
     return $ mapInIO $ \ x -> do
       n <- atomicModifyIORef' counter (\ n -> (succ n, n))
-      putStrLn (show n)
+      putStrLn (showFunc n)
       return x
 
 {-# INLINE consume #-}

@@ -2,9 +2,8 @@ module Potoki.Core.Transform.ByteString
 where
 
 import Potoki.Core.Prelude hiding (filter)
-import Potoki.Core.Transform.Instances
 import Potoki.Core.Transform.Basic
-import Potoki.Core.Transform.State
+import Potoki.Core.Transform.Instances ()
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Potoki.Core.Produce as H
@@ -13,7 +12,6 @@ import qualified Ptr.ByteString as D
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Builder as E
 import qualified Data.ByteString.Lazy as F
-import qualified Control.Monad.Trans.State.Strict as O
 import qualified Acquire.Acquire as M
 
 
@@ -43,16 +41,16 @@ extractLines =
               Nothing -> return Nothing)
           Just chunk -> (
             case B.split 10 chunk of
-              firstInput : tail -> do
+              firstInput : tailVal -> do
                 state <- readIORef stateRef
                 let
                   newPoking =
                     fold state <> C.bytes firstInput
-                  in case unsnoc tail of
-                    Just (init, last) ->
+                  in case unsnoc tailVal of
+                    Just (initVal, lastVal) ->
                       do
-                        writeIORef stateRef (Just (C.bytes last))
-                        return (Just (D.poking newPoking : init))
+                        writeIORef stateRef (Just (C.bytes lastVal))
+                        return (Just (D.poking newPoking : initVal))
                     Nothing ->
                       do
                         writeIORef stateRef (Just newPoking)

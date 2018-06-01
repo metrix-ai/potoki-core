@@ -2,7 +2,6 @@ module Potoki.Core.Transform.FileIO
 where
 
 import Potoki.Core.Prelude hiding (take, takeWhile, filter, drop)
-import Potoki.Core.Transform.Instances
 import Potoki.Core.Transform.Basic
 import Potoki.Core.Types
 import qualified Data.ByteString as J
@@ -20,8 +19,8 @@ appendBytesToFile :: Transform (FilePath, ByteString) (Either IOException ())
 appendBytesToFile =
   mapInIO $ \ (path, bytes) ->
   try $ 
-  withFile path AppendMode $ \ handle -> 
-  J.hPut handle bytes
+  withFile path AppendMode $ \ handleVal -> 
+  J.hPut handleVal bytes
 
 {-# INLINABLE writeTextToFile #-}
 writeTextToFile :: Transform (FilePath, Text) (Either IOException ())

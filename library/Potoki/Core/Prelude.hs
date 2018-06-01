@@ -120,14 +120,14 @@ textString =
 
 {-# INLINABLE unsnoc #-}
 unsnoc :: [a] -> Maybe ([a], a)
-unsnoc list =
-  case process list of
-    (init, lastMaybe) -> fmap (\ last -> (init, last)) lastMaybe
+unsnoc listVal =
+  case process listVal of
+    (initVal, lastMaybe) -> fmap (\ lastVal -> (initVal, lastVal)) lastMaybe
   where
-    process list =
-      case list of
-        head : tail -> case tail of
-          [] -> ([], Just head)
-          _ -> case process tail of
-            (init, lastMaybe) -> (head : init, lastMaybe)
+    process listVal' =
+      case listVal' of
+        headVal : tailVal -> case tailVal of
+          [] -> ([], Just headVal)
+          _ -> case process tailVal of
+            (initVal, lastMaybe) -> (headVal : initVal, lastMaybe)
         _ -> ([], Nothing)

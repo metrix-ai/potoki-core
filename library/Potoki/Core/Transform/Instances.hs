@@ -7,8 +7,8 @@ import qualified Potoki.Core.Fetch as A
 instance Category Transform where
   id =
     Transform (return)
-  (.) (Transform left) (Transform right) =
-    Transform (left <=< right)
+  (.) (Transform leftVal) (Transform rightVal) =
+    Transform (leftVal <=< rightVal)
 
 instance Profunctor Transform where
   dimap inputMapping outputMapping (Transform acquire) =

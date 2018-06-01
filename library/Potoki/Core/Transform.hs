@@ -47,5 +47,4 @@ import Potoki.Core.Transform.ByteString
 import qualified Potoki.Core.Transform.Attoparsec as A
 import qualified Potoki.Core.Transform.Concurrency as N
 import qualified Potoki.Core.Transform.State as R
-import qualified Potoki.Core.Fetch as A
 

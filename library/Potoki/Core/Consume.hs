@@ -32,7 +32,6 @@ import Potoki.Core.Prelude hiding (sum, head, fold, concat, last)
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Acquire.IO as B
-import qualified Potoki.Core.Produce as H
 import qualified Potoki.Core.Transform as J
 import qualified Potoki.Core.IO.Fetch as L
 import qualified Data.ByteString as C
@@ -208,10 +207,10 @@ Overwrite a file.
 writeBytesToFile :: FilePath -> Consume ByteString (Either IOException ())
 writeBytesToFile path =
   Consume $ \ fetch ->
-  try $ withFile path WriteMode $ \ handle ->
+  try $ withFile path WriteMode $ \ handleVal ->
   do
-    hSetBuffering handle NoBuffering
-    L.fetchAndHandleAll fetch (return ()) (C.hPut handle)
+    hSetBuffering handleVal NoBuffering
+    L.fetchAndHandleAll fetch (return ()) (C.hPut handleVal)
 
 {-|
 Append to a file.
@@ -223,10 +222,10 @@ Append to a file.
 appendBytesToFile :: FilePath -> Consume ByteString (Either IOException ())
 appendBytesToFile path =
   Consume $ \ fetch ->
-  try $ withFile path AppendMode $ \ handle ->
+  try $ withFile path AppendMode $ \ handleVal ->
   do
-    hSetBuffering handle NoBuffering
-    L.fetchAndHandleAll fetch (return ()) (C.hPut handle)
+    hSetBuffering handleVal NoBuffering
+    L.fetchAndHandleAll fetch (return ()) (C.hPut handleVal)
 
 {-# INLINABLE deleteFiles #-}
 deleteFiles :: Consume FilePath (Either IOException ())
@@ -236,8 +235,8 @@ deleteFiles =
 
 {-# INLINABLE fold #-}
 fold :: D.Fold input output -> Consume input output
-fold (D.Fold step init finish) =
-  Consume $ \ (A.Fetch fetch) -> build fetch init
+fold (D.Fold step initVal finish) =
+  Consume $ \ (A.Fetch fetch) -> build fetch initVal
   where
     build fetch !acc =
       fetch >>= \case
@@ -246,8 +245,8 @@ fold (D.Fold step init finish) =
 
 {-# INLINABLE foldInIO #-}
 foldInIO :: D.FoldM IO input output -> Consume input output
-foldInIO (D.FoldM step init finish) =
-  Consume $ \ (A.Fetch fetch) -> build fetch =<< init
+foldInIO (D.FoldM step initVal finish) =
+  Consume $ \ (A.Fetch fetch) -> build fetch =<< initVal
   where
     build fetch !acc =
       fetch >>= \case
@@ -256,9 +255,9 @@ foldInIO (D.FoldM step init finish) =
 
 {-# INLINABLE folding #-}
 folding :: D.Fold a b -> Consume a c -> Consume a (b, c)
-folding (D.Fold step init extract) (Consume consumeIO) =
+folding (D.Fold step initVal extract) (Consume consumeIO) =
   Consume $ \ fetch -> do
-    foldStateRef <- newIORef init
+    foldStateRef <- newIORef initVal
     consumptionResult <-
       consumeIO (A.handlingElements (\ element -> do
         !newState <- flip step element <$> readIORef foldStateRef
@@ -268,9 +267,9 @@ folding (D.Fold step init extract) (Consume consumeIO) =
 
 {-# INLINABLE foldingInIO #-}
 foldingInIO :: D.FoldM IO a b -> Consume a c -> Consume a (b, c)
-foldingInIO (D.FoldM step init extract) (Consume consumeIO) =
+foldingInIO (D.FoldM step initVal extract) (Consume consumeIO) =
   Consume $ \ fetch -> do
-    foldStateRef <- newIORef =<< init
+    foldStateRef <- newIORef =<< initVal
     consumptionResult <-
       consumeIO (A.handlingElements (\ element -> do
         !newState <- flip step element =<< readIORef foldStateRef
@@ -298,7 +297,7 @@ runParseResult inputToResult =
               if null contexts
                 then fromString message
                 else fromString (showString (intercalate " > " contexts) (showString ": " message))
-    consume inputToResult =
+    consume _ =
       fetchInput >>= \case
         Nothing -> just mempty
         Just !input -> just input

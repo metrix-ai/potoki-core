@@ -18,11 +18,7 @@ where
 import Potoki.Core.Prelude
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
-import qualified Data.Attoparsec.Types as I
-import qualified Data.Attoparsec.ByteString as K
-import qualified Data.Attoparsec.Text as L
 import qualified Data.HashMap.Strict as B
-import qualified Data.ByteString as D
 import qualified Data.Vector as C
 import qualified System.Directory as G
 import qualified Acquire.Acquire as M
@@ -80,15 +76,15 @@ transform (Transform transformAcquire) (Produce produceAcquire) =
 
 {-# INLINE vector #-}
 vector :: Vector input -> Produce input
-vector vector =
+vector vectorVal =
   Produce $ M.Acquire $ do
     indexRef <- newIORef 0
     let
       fetch =
         A.Fetch $ do
-          index <- readIORef indexRef
-          writeIORef indexRef $! succ index
-          return $ (C.!?) vector index
+          indexVal <- readIORef indexRef
+          writeIORef indexRef $! succ indexVal
+          return $ (C.!?) vectorVal indexVal
       in return (fetch, return ())
 
 {-# INLINE hashMapRows #-}
@@ -120,9 +116,9 @@ fileBytesAtOffset path offset =
   where
     acquire =
       do
-        handle <- openBinaryFile path ReadMode
-        hSeek handle AbsoluteSeek (fromIntegral offset)
-        return handle
+        handleVal <- openBinaryFile path ReadMode
+        hSeek handleVal AbsoluteSeek (fromIntegral offset)
+        return handleVal
 
 {-# INLINABLE accessingHandle #-}
 accessingHandle :: IO Handle -> (Handle -> A.Fetch (Either IOException a)) -> Produce (Either IOException a)
@@ -131,8 +127,8 @@ accessingHandle acquireHandle fetch =
   where
     normal =
       do
-        handle <- acquireHandle
-        return (fetch handle, catchIOError (hClose handle) (const (return ())))
+        handleVal <- acquireHandle
+        return (fetch handleVal, catchIOError (hClose handleVal) (const (return ())))
     failing exception =
       return (pure (Left exception), return ())
 
@@ -170,8 +166,8 @@ fileText path =
   where
     success =
       do
-        handle <- openFile path ReadMode
-        return (A.handleText handle, catchIOError (hClose handle) (const (return ())))
+        handleVal <- openFile path ReadMode
+        return (A.handleText handleVal, catchIOError (hClose handleVal) (const (return ())))
     failure exception =
       return (pure (Left exception), return ())
 

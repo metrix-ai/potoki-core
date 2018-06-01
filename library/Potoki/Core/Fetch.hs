@@ -27,13 +27,8 @@ where
 
 import Potoki.Core.Prelude hiding (filter, takeWhile)
 import Potoki.Core.Types
-import qualified Data.Attoparsec.Types as I
-import qualified Data.Attoparsec.ByteString as K
-import qualified Data.Attoparsec.Text as L
-import qualified Data.HashMap.Strict as B
 import qualified Data.Vector as C
 import qualified Data.ByteString as D
-import qualified Data.Text as A
 import qualified Data.Text.IO as A
 
 
@@ -218,18 +213,18 @@ handleBytes =
 
 {-# INLINABLE handleBytesWithChunkSize #-}
 handleBytesWithChunkSize :: Int -> Handle -> Fetch (Either IOException ByteString)
-handleBytesWithChunkSize chunkSize handle =
+handleBytesWithChunkSize chunkSize handleVal =
   Fetch $ do
-    chunk <- try (D.hGetSome handle chunkSize)
+    chunk <- try (D.hGetSome handleVal chunkSize)
     case chunk of
       Right "" -> return Nothing
       _ -> return (Just chunk)
 
 {-# INLINABLE handleText #-}
 handleText :: Handle -> Fetch (Either IOException Text)
-handleText handle =
+handleText handleVal =
   Fetch $ do
-    chunk <- try (A.hGetChunk handle)
+    chunk <- try (A.hGetChunk handleVal)
     case chunk of
       Right "" -> return Nothing
       _ -> return (Just chunk)
@@ -238,22 +233,22 @@ handleText handle =
 mapFilter :: (input -> Maybe output) -> Fetch input -> Fetch output
 mapFilter mapping (Fetch fetchIO) =
   Fetch $ 
-  fix $ \ loop -> do 
+  fix $ \ doLoop -> do 
     fetch <- fetchIO
     case mapping <$> fetch of
       Just (Just output) -> return (Just output)
-      Just Nothing -> loop
+      Just Nothing -> doLoop
       Nothing -> return Nothing
 
 {-# INLINABLE filter #-}
 filter :: (input -> Bool) -> Fetch input -> Fetch input
 filter predicate (Fetch fetchIO) =
   Fetch $ 
-  fix $ \ loop -> do 
+  fix $ \ doLoop -> do 
     fetch <- fetchIO
     case predicate <$> fetch of
       Just True -> return fetch
-      Just False -> loop
+      Just False -> doLoop
       Nothing -> return Nothing
 
 
@@ -261,11 +256,11 @@ filter predicate (Fetch fetchIO) =
 just :: Fetch (Maybe element) -> Fetch element
 just (Fetch fetchIO) =
   Fetch $ 
-  fix $ \ loop -> do 
+  fix $ \ doLoop -> do 
     fetch <- fetchIO
     case fetch of
       Just (Just element) -> return (Just element)
-      Just (Nothing) -> loop
+      Just (Nothing) -> doLoop
       Nothing -> return Nothing
 
 {-# INLINABLE takeWhile #-}
@@ -289,13 +284,13 @@ finiteMVar var =
 
 {-# INLINABLE vector #-}
 vector :: IORef Int -> Vector element -> Fetch element
-vector indexRef vector =
+vector indexRef vectorVal =
   Fetch $ do
-    index <- readIORef indexRef
-    if index < C.length vector
+    indexVal <- readIORef indexRef
+    if indexVal < C.length vectorVal
       then do
-        writeIORef indexRef (succ index)
-        return (Just (C.unsafeIndex vector index))
+        writeIORef indexRef (succ indexVal)
+        return (Just (C.unsafeIndex vectorVal indexVal))
       else return Nothing
 
 {-# INLINABLE handlingElements #-}

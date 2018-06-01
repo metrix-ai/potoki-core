@@ -3,9 +3,8 @@ where
 
 import Potoki.Core.Prelude
 import Potoki.Core.Types
-import Potoki.Core.Transform.Instances
+import Potoki.Core.Transform.Instances ()
 import qualified Potoki.Core.Fetch as A
-import qualified Data.ByteString as B
 import qualified Control.Monad.Trans.State.Strict as O
 import qualified Acquire.Acquire as M
 
