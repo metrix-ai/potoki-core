@@ -11,12 +11,11 @@ import Potoki.Core.Transform.Instances ()
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Acquire.Acquire as M
+import qualified Control.Concurrent.Chan.Unagi.Bounded as B
 
 
 {-# INLINE bufferize #-}
 bufferize :: Int -> Transform element element
-bufferize = undefined
-{-
 bufferize size =
   Transform $ \ (A.Fetch fetch) -> M.Acquire $ do
     (inChan, outChan) <- B.newChan size
@@ -25,7 +24,6 @@ bufferize size =
         Nothing -> B.writeChan inChan Nothing
         Just !element -> B.writeChan inChan (Just element) >> doLoop
     return $ (A.Fetch $ B.readChan outChan, return ())
--}
 
 {-|
 Identity Transform, which ensures that the inputs are fetched synchronously.
