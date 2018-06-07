@@ -243,4 +243,11 @@ consumePotoki =
       let prod = E.list list
       res <- run (C.produceAndConsume prod (D.execState f 0))
       M.assert (res == resL)
+    ,
+    testProperty "Choice consume right'" $ \ (list :: [Either Bool Int]) ->
+    let n = sum <$> sequence list
+    in monadicIO $ do
+      let prod = E.list list
+      len <- run (C.produceAndConsume prod $ right' D.sum)
+      M.assert (len == n)
   ]
