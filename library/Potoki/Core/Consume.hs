@@ -209,7 +209,6 @@ writeBytesToFile path =
   Consume $ \ fetch ->
   try $ withFile path WriteMode $ \ handleVal ->
   do
-    hSetBuffering handleVal NoBuffering
     L.fetchAndHandleAll fetch (return ()) (C.hPut handleVal)
 
 {-|
@@ -224,7 +223,6 @@ appendBytesToFile path =
   Consume $ \ fetch ->
   try $ withFile path AppendMode $ \ handleVal ->
   do
-    hSetBuffering handleVal NoBuffering
     L.fetchAndHandleAll fetch (return ()) (C.hPut handleVal)
 
 {-# INLINABLE deleteFiles #-}
