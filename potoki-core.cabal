@@ -102,5 +102,7 @@ test-suite tests
     quickcheck-instances >=0.3.11 && <0.4,
     QuickCheck >=2.8.1 && <3,
     random >=1.1 && <2,
+    foldl >=1.3.7 && <1.4,
+    ilist >=0.3.1.0 && <0.4,
     --
     rerebase >=1.1 && <2

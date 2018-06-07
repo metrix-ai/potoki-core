@@ -3,10 +3,12 @@ module Potoki where
 import Prelude hiding (first, second)
 import Control.Arrow
 import Test.QuickCheck.Instances
+import Test.QuickCheck.Monadic as M
 import Test.Tasty
 import Test.Tasty.Runners
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
+import qualified Control.Foldl as Fl
 import qualified Potoki.Core.IO as C
 import qualified Potoki.Core.Consume as D
 import qualified Potoki.Core.Transform as A
@@ -15,6 +17,7 @@ import qualified Data.Attoparsec.ByteString.Char8 as B
 import qualified Data.ByteString as F
 import qualified Data.Vector as G
 import qualified System.Random as H
+import Data.List.Index (indexed)
 
 potoki :: TestTree
 potoki =
@@ -47,6 +50,8 @@ potoki =
     transformPotoki
     ,
     parsingPotoki
+    ,
+    consumePotoki
   ]
 
 
@@ -135,4 +140,107 @@ parsingPotoki =
       consume = D.transform transform D.count
       in do
         assertEqual "" 3 =<< C.produceAndConsume produce consume
+  ]
+
+consumePotoki =
+  testGroup "Consume" $
+  [
+    testProperty "count" $ \ (list :: [Int]) ->
+    let n = length list
+    in monadicIO $ do
+      let prod = E.list list
+      len <- run (C.produceAndConsume prod D.count)
+      M.assert (len == n)
+    ,
+    testProperty "sum" $ \ (list :: [Int]) ->
+    let n = sum list
+    in monadicIO $ do
+      let prod = E.list list
+      len <- run (C.produceAndConsume prod D.sum)
+      M.assert (len == n)
+    ,
+    testProperty "head" $ \ (list :: [Int]) ->
+    let el = if null list then Nothing else (Just (head list))
+    in monadicIO $ do
+      let prod = E.list list
+      he <- run (C.produceAndConsume prod D.head)
+      M.assert (he == el)
+    ,
+    testProperty "last" $ \ (list :: [Int]) ->
+    let el = if null list then Nothing else (Just (last list))
+    in monadicIO $ do
+      let prod = E.list list
+      he <- run (C.produceAndConsume prod D.last)
+      M.assert (he == el)
+    ,
+    testProperty "list" $ \ (list :: [Int]) ->
+    monadicIO $ do
+      let prod = E.list list
+      res <- run (C.produceAndConsume prod D.list)
+      M.assert (res == list)
+    ,
+    testProperty "reverseList" $ \ (list :: [Int]) ->
+    let revList = reverse list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run (C.produceAndConsume prod D.reverseList)
+      M.assert (res == revList)
+    ,
+    testProperty "vector" $ \ (list :: [Int]) ->
+    let vec = G.fromList list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run (C.produceAndConsume prod D.vector)
+      M.assert (res == vec)
+    ,
+    testProperty "concat" $ \ (list :: [[Int]]) ->
+    let con = concat list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run (C.produceAndConsume prod D.concat)
+      M.assert (res == con)
+    ,
+    testProperty "fold" $ \ (list :: [Int], fun :: (Fun (Int, Int) Int), first :: Int) ->
+    let f = applyFun2 fun
+        fol = foldl' f first list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run (C.produceAndConsume prod (D.fold (Fl.Fold f first id)))
+      M.assert (res == fol)
+    ,
+    testProperty "foldInIO" $ \ (list :: [Int]) ->
+    let fin = sum list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run $ do
+        sumVar <- newIORef 0
+        (C.produceAndConsume prod (D.foldInIO (Fl.FoldM (\_ a -> modifyIORef' sumVar (a+)) (pure ()) (\_ -> readIORef sumVar)) ) )
+      M.assert (res == fin)
+    ,
+    testProperty "folding" $ \ (list :: [Int], fun :: (Fun (Int, Int) Int), first :: Int) ->
+    let f = applyFun2 fun
+        fol = foldl' f first list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run (C.produceAndConsume prod (D.folding (Fl.Fold f first id) (D.sum) ))
+      a <- run (C.produceAndConsume prod D.sum)
+      M.assert (res == (fol, a))
+    ,
+    testProperty "foldingInIO" $ \ (list :: [Int]) ->
+    let fol = sum list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run $ do
+        sumVar <- newIORef 0
+        (C.produceAndConsume prod (D.foldingInIO (Fl.FoldM (\_ a -> modifyIORef' sumVar (a+)) (pure ()) (\_ -> readIORef sumVar)) (D.sum) ))
+      a <- run (C.produceAndConsume prod D.sum)
+      M.assert (res == (fol, a))
+    ,
+    testProperty "execState" $ \ (list :: [Int]) ->
+    let f = modify' . (+)
+        resL = sum list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run (C.produceAndConsume prod (D.execState f 0))
+      M.assert (res == resL)
   ]
