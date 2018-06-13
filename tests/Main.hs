@@ -64,11 +64,11 @@ resourceChecker :: TestTree
 resourceChecker =
   testGroup "produce1 >>= produce2" $
   [
-    testCase "Resource produce1 is released 1 time" $ do
+    testCase "Check produce binding" $ do
       resourceVar1 <- newIORef Initial
       resourceVar2 <- newIORef Initial
-      let prod1 = checkProduce resourceVar1 100
-          prod2 = checkProduce resourceVar2
+      let prod1 = checkProduce resourceVar1 (const True) 100
+          prod2 = \x -> checkProduce resourceVar2 (/= Released) x
       res <- C.produceAndConsume (prod1 >>= prod2) D.sum
       print res
       fin <- readIORef resourceVar1
@@ -91,29 +91,41 @@ resourceChecker =
       M.assert (check == res)
   ]
 
+-- В выражении "produce1 >>= produce2" нужно проверить, что:
+-- - Ресурс produce1 отпускается 1 раз
+-- - Ресурс produce2 инициализируется столько раз, сколько элементов производит produce1
+-- - Ресурс produce2 отпускается столько раз, сколько элементов производит produce1
+-- - Каждый ресурс produce2 отпускается до того, как инициализируется следующий
+
 data Resource
   = Initial
   | Acquired
   | Released
-  | ReleasedNonAcquired
+  | AcquiredImproperly
+  | ReleasedImproperly
   deriving (Show, Eq)
 
-checkProduce :: IORef Resource -> Int -> E.Produce Int
-checkProduce resourceVar k = E.Produce . Ac.Acquire $ do
-  writeIORef resourceVar Acquired
-  stVar <- newIORef 0
-  let fetch = do
-        n <- readIORef stVar
-        if n >= k then return (Nothing)
-        else do
-          writeIORef stVar $! n + 1
-          print n
-          return (Just n)
-  return $ (,) (Fe.Fetch fetch) $ do
-      res <- readIORef resourceVar
-      case res of
-        Acquired -> writeIORef resourceVar Released
-        _ -> writeIORef resourceVar ReleasedNonAcquired
+checkProduce :: IORef Resource -> (Resource -> Bool) -> Int -> E.Produce Int
+checkProduce resourceVar f k = E.Produce . Ac.Acquire $ do
+  res <- readIORef resourceVar
+  if f res && res /= Initial
+    then do
+      return $ (,) (Fe.Fetch $ return Nothing) $ writeIORef resourceVar AcquiredImproperly
+    else do
+      writeIORef resourceVar Acquired
+      stVar <- newIORef 0
+      let fetch = do
+            n <- readIORef stVar
+            if n >= k then return (Nothing)
+            else do
+              writeIORef stVar $! n + 1
+              print n
+              return (Just n)
+      return $ (,) (Fe.Fetch fetch) $ do
+          res <- readIORef resourceVar
+          case res of
+            Acquired -> writeIORef resourceVar Released
+            _ -> writeIORef resourceVar ReleasedImproperly
 
 
 asyncCheckResource :: TVar Resource -> E.Produce Int
@@ -140,4 +152,4 @@ syncCheckResource resourceVar = E.Produce . Ac.Acquire $ do
       res <- readIORef resourceVar
       case res of
         Acquired -> writeIORef resourceVar Released
-        _ -> writeIORef resourceVar ReleasedNonAcquired
+        _ -> writeIORef resourceVar ReleasedImproperly
