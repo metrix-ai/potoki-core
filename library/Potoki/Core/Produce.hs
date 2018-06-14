@@ -43,24 +43,37 @@ instance Monad Produce where
   return = pure
   (>>=) (Produce (Acquire io1)) k2 =
     Produce $ Acquire $ do
-      (fetch1, release1) <- io1
+      (A.Fetch fetch1, release1) <- io1
       release2Ref <- newIORef (return ())
+      fetch3Var <- newIORef (return Nothing)
       let
         fetch2 input1 =
           case k2 input1 of
-            Produce (Acquire io2) ->
-              A.ioFetch $ do
-                join (readIORef release2Ref)
-                (fetch2', release2') <- io2
-                writeIORef release2Ref release2'
-                return fetch2'
+            Produce (Acquire io2) -> do
+              join (readIORef release2Ref)
+              (A.Fetch fetch2', release2') <- io2
+              writeIORef release2Ref release2'
+              return fetch2'
         release3 =
           join (readIORef release2Ref) >> release1
-        in return (fetch1 >>= fetch2, release3)
+        fetch3 =  do
+            res <- readIORef fetch3Var
+            mayY <- res
+            case mayY of
+              Nothing -> do
+                mayX <- fetch1
+                case mayX of
+                  Nothing -> return Nothing
+                  Just x -> do
+                    fetch2 x >>= writeIORef fetch3Var
+                    fetch3
+              Just y  -> return $ Just y
+      return (A.Fetch fetch3, release3)
 
 instance MonadIO Produce where
-  liftIO io =
-    Produce (return (liftIO io))
+  liftIO io = Produce $ do
+    refX <- liftIO $ io >>= newIORef . Just
+    return (A.maybeRef refX)
 
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
@@ -188,4 +201,3 @@ Never stops.
 infiniteMVar :: MVar element -> Produce element
 infiniteMVar var =
   Produce $ M.Acquire (return (A.infiniteMVar var, return ()))
-    

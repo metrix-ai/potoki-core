@@ -40,32 +40,11 @@ instance Applicative Fetch where
   (<*>) (Fetch leftIO) (Fetch rightIO) =
     Fetch ((<*>) <$> leftIO <*> rightIO)
 
-instance Monad Fetch where
-  return =
-    pure
-  (>>=) (Fetch leftIO) rightFetch =
-    Fetch $ do
-      leftFetching <- leftIO
-      case leftFetching of
-        Nothing -> return Nothing
-        Just leftElement -> case rightFetch leftElement of
-          Fetch rightIO -> rightIO
-
 instance Alternative Fetch where
   empty =
     Fetch (pure Nothing)
   (<|>) (Fetch leftIO) (Fetch rightIO) =
     Fetch ((<|>) <$> leftIO <*> rightIO)
-
-instance MonadPlus Fetch where
-  mzero =
-    empty
-  mplus =
-    (<|>)
-
-instance MonadIO Fetch where
-  liftIO io =
-    Fetch (fmap Just io)
 
 {-# INLINABLE duplicate #-}
 duplicate :: Fetch element -> IO (Fetch element, Fetch element)

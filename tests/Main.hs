@@ -70,7 +70,6 @@ resourceChecker =
       let prod1 = checkProduce resourceVar1 (const True) 100
           prod2 = \x -> checkProduce resourceVar2 (/= Released) x
       res <- C.produceAndConsume (prod1 >>= prod2) D.sum
-      print res
       fin <- readIORef resourceVar1
       assertEqual "" Released fin
     ,
@@ -119,7 +118,6 @@ checkProduce resourceVar f k = E.Produce . Ac.Acquire $ do
             if n >= k then return (Nothing)
             else do
               writeIORef stVar $! n + 1
-              print n
               return (Just n)
       return $ (,) (Fe.Fetch fetch) $ do
           res <- readIORef resourceVar
