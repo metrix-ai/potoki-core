@@ -71,9 +71,16 @@ instance Monad Produce where
       return (A.Fetch fetch3, release3)
 
 instance MonadIO Produce where
-  liftIO io = Produce $ do
-    refX <- liftIO $ io >>= newIORef . Just
-    return (A.maybeRef refX)
+  liftIO io = Produce . liftIO $ do
+    refX <- newIORef $ Just io
+    let fetch = A.Fetch $ fetchIO refX
+          where
+            fetchIO ref = do
+              elemVal <- readIORef ref
+              for elemVal $ \getElement -> do
+                  writeIORef ref Nothing
+                  getElement
+    return fetch
 
 {-# INLINABLE list #-}
 list :: [input] -> Produce input

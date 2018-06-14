@@ -73,14 +73,6 @@ resourceChecker =
       fin <- readIORef resourceVar1
       assertEqual "" Released fin
     ,
-    testCase "Fetch1 >>= Fetch2" $ do
-      stVar1 <- newIORef [1]
-      stVar2 <- newIORef [2,3,4]
-      let fetch = Fe.list stVar1 >> Fe.list stVar2
-      let prod = E.Produce $ pure fetch
-      res <- C.produceAndConsume prod D.list
-      assertEqual "" [2,3,4] res
-    ,
     testProperty "Bind for produce" $ \ (list :: [Int]) ->
     let check = list >>= (enumFromTo 0)
         prod1 = E.list list
@@ -88,7 +80,25 @@ resourceChecker =
     in monadicIO $ do
       res <- run $ C.produceAndConsume (prod1 >>= prod2) D.list
       M.assert (check == res)
+    ,
+    testProperty "liftIO for Produce. Consume0" $ \ (_ :: Int) ->
+    monadicIO $ do
+      check <- run $ do
+        checkVar <- newIORef False
+        let prod = liftIO $ writeIORef checkVar True
+        C.produceAndConsume prod someThing
+        readIORef checkVar
+      M.assert $ check == False
+    ,
+    testProperty "liftIO for Produce. ConsumeN" $ \ (n :: Int) ->
+    monadicIO $ do
+      let prod = liftIO (return n)
+      len <- run (C.produceAndConsume prod D.count)
+      M.assert (len == 1)
   ]
+
+someThing :: D.Consume input Int
+someThing = D.Consume $ \ (Fe.Fetch _) -> return 0
 
 -- В выражении "produce1 >>= produce2" нужно проверить, что:
 -- - Ресурс produce1 отпускается 1 раз
