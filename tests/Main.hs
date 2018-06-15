@@ -58,6 +58,15 @@ main =
       atomically $ do
         resource <- readTVar resourceVar
         guard $ resource == Released
+    ,
+    testProperty "Transform->Produce resource checker" $ \ (list :: [Int]) ->
+    let prod = E.list list
+    in monadicIO $ do
+      check <- run $ do
+        resourceVar1 <-  newIORef Initial
+        res <- C.produceAndConsume (E.transform (checkTransform resourceVar1) prod) D.sum
+        readIORef resourceVar1
+      M.assert $ check == Released
   ]
 
 resourceChecker :: TestTree
@@ -100,11 +109,11 @@ resourceChecker =
 someThing :: D.Consume input Int
 someThing = D.Consume $ \ (Fe.Fetch _) -> return 0
 
--- В выражении "produce1 >>= produce2" нужно проверить, что:
--- - Ресурс produce1 отпускается 1 раз
--- - Ресурс produce2 инициализируется столько раз, сколько элементов производит produce1
--- - Ресурс produce2 отпускается столько раз, сколько элементов производит produce1
--- - Каждый ресурс produce2 отпускается до того, как инициализируется следующий
+single :: Foldable f => f a -> Maybe a
+single = join . (foldr' f Nothing)
+  where
+    f x Nothing = Just $ Just x
+    f _ _       = Just Nothing
 
 data Resource
   = Initial
@@ -113,6 +122,20 @@ data Resource
   | AcquiredImproperly
   | ReleasedImproperly
   deriving (Show, Eq)
+
+checkTransform :: IORef Resource -> A.Transform Int Int
+checkTransform resourceVar = A.Transform $ \ fetchIO -> Ac.Acquire $ do
+  writeIORef resourceVar Acquired
+  return $ (,) (plusFetch fetchIO) $ do
+      res <- readIORef resourceVar
+      case res of
+        Acquired -> writeIORef resourceVar Released
+        _ -> writeIORef resourceVar ReleasedImproperly
+
+plusFetch :: Fe.Fetch Int -> Fe.Fetch Int
+plusFetch (Fe.Fetch fetchIO) = Fe.Fetch $ do
+  fetch <- fetchIO
+  return $ fmap succ fetch
 
 checkProduce :: IORef Resource -> (Resource -> Bool) -> Int -> E.Produce Int
 checkProduce resourceVar f k = E.Produce . Ac.Acquire $ do
@@ -134,7 +157,6 @@ checkProduce resourceVar f k = E.Produce . Ac.Acquire $ do
           case res of
             Acquired -> writeIORef resourceVar Released
             _ -> writeIORef resourceVar ReleasedImproperly
-
 
 asyncCheckResource :: TVar Resource -> E.Produce Int
 asyncCheckResource resourceVar = E.Produce . Ac.Acquire $ do
