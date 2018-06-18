@@ -112,6 +112,31 @@ transformPotoki =
             rmap (mconcat . intersperse "\n") $
             D.transform A.extractLines D.list
       in expected === actual
+    ,
+    testProperty "takeWhile" $ \ (list :: [Int]) ->
+    let listPart = takeWhile odd list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run (C.produceAndTransformAndConsume prod (A.takeWhile odd) D.list)
+      M.assert (res == listPart)
+    ,
+    testProperty "mapFilter" $ \ (list :: [Int]) ->
+    let in2MaybeOut input =
+          if input `mod` 4 == 0
+            then Just $ input `mod` 4
+            else Nothing
+        filteredList = map fromJust . filter (/= Nothing) . map in2MaybeOut $ list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run (C.produceAndTransformAndConsume prod (A.mapFilter in2MaybeOut) D.list)
+      M.assert (res == filteredList)
+    ,
+    testProperty "filter" $ \ (list :: [Int]) ->
+    let filteredList = filter even list
+    in monadicIO $ do
+      let prod = E.list list
+      res <- run (C.produceAndTransformAndConsume prod (A.filter even) D.list)
+      M.assert (res == filteredList)
   ]
 
 parsingPotoki :: TestTree
@@ -251,3 +276,4 @@ consumePotoki =
       len <- run (C.produceAndConsume prod $ right' D.sum)
       M.assert (len == n)
   ]
+
