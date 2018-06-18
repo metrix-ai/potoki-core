@@ -21,7 +21,6 @@ import qualified Acquire.Acquire as Ac
 import Potoki
 import Transform
 
-
 main =
   defaultMain $
   testGroup "All tests" $
@@ -59,7 +58,7 @@ main =
         resource <- readTVar resourceVar
         guard $ resource == Released
     ,
-    testProperty "Transform->Produce resource checker" $ \ (list :: [Int]) ->
+    testProperty "Produce.transform resource checker" $ \ (list :: [Int]) ->
     let prod = E.list list
     in monadicIO $ do
       check <- run $ do
@@ -67,6 +66,33 @@ main =
         res <- C.produceAndConsume (E.transform (checkTransform resourceVar1) prod) D.sum
         readIORef resourceVar1
       M.assert $ check == Released
+    ,
+    testProperty "Consume.transform resource checker" $ \ (list :: [Int]) ->
+    let prod = E.list list
+    in monadicIO $ do
+      check <- run $ do
+        resourceVar1 <-  newIORef Initial
+        res <- C.produceAndConsume prod (D.transform (checkTransform resourceVar1) D.sum)
+        readIORef resourceVar1
+      M.assert $ check == Released
+    ,
+    testCase "Transform.produce resource checker #1" $ do
+      resourceVar <- newIORef Initial
+      let prod = checkProduce resourceVar (/= Released) 100
+      res1 <- C.produceAndConsume (E.transform (A.produce intToProduce) prod) D.sum
+      res2 <- C.produceAndConsume prod (D.transform (A.produce intToProduce) D.sum)
+      fin <- readIORef resourceVar
+      assertEqual "" Released fin
+      assertEqual "" res1 res2
+    ,
+    testCase "Transform.produce resource checker #2" $ do
+      resourceVar <- newIORef Initial
+      let prod = checkProduce resourceVar (/= Released) 100
+      res1 <- C.produceAndConsume (E.transform (A.take 5 >>> A.produce intToProduce) prod) D.sum
+      res2 <- C.produceAndConsume prod (D.transform (A.take 5 >>> A.produce intToProduce) D.sum)
+      fin <- readIORef resourceVar
+      assertEqual "" Released fin
+      assertEqual "" res1 res2
   ]
 
 resourceChecker :: TestTree
@@ -104,7 +130,17 @@ resourceChecker =
       let prod = liftIO (return n)
       len <- run (C.produceAndConsume prod D.count)
       M.assert (len == 1)
-  ]
+    ]
+
+intToProduce :: Int -> E.Produce Int
+intToProduce a = E.Produce . Ac.Acquire $ do
+  stVar <- newIORef 0
+  return $ flip (,) (return ()) $ Fe.Fetch $ do
+      n <- readIORef stVar
+      if n >= a + 1 then (return Nothing)
+      else do
+        writeIORef stVar $! n + 1
+        return (Just n)
 
 someThing :: D.Consume input Int
 someThing = D.Consume $ \ (Fe.Fetch _) -> return 0
