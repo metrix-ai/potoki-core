@@ -15,7 +15,7 @@ by producing a list of outputs and then composing the transform with
 the "list" transform.
 -}
 {-# INLINE runState #-}
-runState :: (input -> O.State state output) -> state -> Transform input (state, output)
+runState :: (input -> O.State state output) -> state -> Transform input (output, state)
 runState stateFn initialState =
   Transform $ \ (A.Fetch fetchIO) -> M.Acquire $ do
     stateRef <- newIORef initialState
@@ -26,15 +26,15 @@ runState stateFn initialState =
           case O.runState (stateFn input) currentState of
             (output, newState) -> do
               writeIORef stateRef newState
-              return (Just (newState, output))
+              return (Just (output, newState))
         Nothing -> return Nothing
 
 {-# INLINE evalState #-}
 evalState :: (input -> O.State state output) -> state -> Transform input output
 evalState stateFn initialState =
-  runState stateFn initialState >>> arr snd
+  rmap fst (runState stateFn initialState)
 
 {-# INLINE execState #-}
 execState :: (input -> O.State state output) -> state -> Transform input state
 execState stateFn initialState =
-  runState stateFn initialState >>> arr fst
+  rmap snd (runState stateFn initialState)
