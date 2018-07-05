@@ -5,30 +5,22 @@ import Potoki.Core.Prelude
 
 
 {-|
-Passive producer of elements.
+A specification of how to consume one input.
 -}
-newtype Fetch element =
-  Fetch (IO (Maybe element))
+newtype Consume input =
+  Consume (input -> IO Bool)
 
-{-|
-Passive producer of elements with support for early termination
-and resource management.
--}
 newtype Produce element =
-  Produce (Acquire (Fetch element))
+  Produce (Consume element -> IO ())
+
+newtype Reduce element reduction =
+  Reduce (IO (Consume element, IO reduction))
+
+newtype Transduce input output =
+  Transduce (Consume input -> Acquire (Consume output))
 
 {-|
-Active consumer of input into output.
-Sort of like a reducer in Map/Reduce.
-
-Automates the management of resources.
+A producer which composes concurrently.
 -}
-newtype Consume input output =
-  {-|
-  An action, which executes the provided fetch in IO,
-  while managing the resources behind the scenes.
-  -}
-  Consume (Fetch input -> IO output)
-
-newtype Transform input output =
-  Transform (Fetch input -> Acquire (Fetch output))
+newtype ProduceConcurrently element =
+  ProduceConcurrently (Produce element)

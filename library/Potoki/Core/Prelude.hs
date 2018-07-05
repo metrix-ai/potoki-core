@@ -71,6 +71,16 @@ import Text.Printf as Exports (printf, hPrintf)
 import Text.Read as Exports (Read(..), readMaybe, readEither)
 import Unsafe.Coerce as Exports
 
+-- contravariant
+-------------------------
+import Data.Functor.Contravariant as Exports
+import Data.Functor.Contravariant.Divisible as Exports
+
+-- pointed
+-------------------------
+import Data.Pointed as Exports
+import Data.Copointed as Exports
+
 -- profunctors
 -------------------------
 import Data.Profunctor.Unsafe as Exports
@@ -104,6 +114,10 @@ import Data.Vector as Exports (Vector)
 -- hashable
 -------------------------
 import Data.Hashable as Exports (Hashable)
+
+-- stm
+-------------------------
+import Control.Concurrent.STM as Exports
 
 --------------------------------------------------------------------------------
 
