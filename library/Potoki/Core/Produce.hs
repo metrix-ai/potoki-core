@@ -13,7 +13,7 @@ instance Pointed Produce where
   point = singleton
 
 {-|
-Unlift the concurrent producer.
+Unlift a concurrently composed producer.
 -}
 concurrently :: ProduceConcurrently element -> Produce element
 concurrently (ProduceConcurrently produce) = produce
