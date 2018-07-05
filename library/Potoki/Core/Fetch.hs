@@ -22,6 +22,7 @@ module Potoki.Core.Fetch
   finiteMVar,
   vector,
   handlingElements,
+  lazyByteStringRef,
 )
 where
 
@@ -30,7 +31,8 @@ import Potoki.Core.Types
 import qualified Data.Vector as C
 import qualified Data.ByteString as D
 import qualified Data.Text.IO as A
-
+import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy.Internal as B
 
 deriving instance Functor Fetch
 
@@ -280,4 +282,14 @@ handlingElements xRay (Fetch fetchIO) =
     case mbElement of
       Just element -> xRay element $> mbElement
       Nothing -> return Nothing
-    
+
+{-# INLINE lazyByteStringRef #-}
+lazyByteStringRef :: IORef B.ByteString -> Fetch ByteString
+lazyByteStringRef ref =
+  Fetch $ do
+    lazyByteString <- readIORef ref
+    case lazyByteString of
+      B.Chunk chunk remainders -> do
+        writeIORef ref remainders
+        return (Just chunk)
+      B.Empty -> return Nothing

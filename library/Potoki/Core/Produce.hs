@@ -12,6 +12,7 @@ module Potoki.Core.Produce
   directoryContents,
   finiteMVar,
   infiniteMVar,
+  lazyByteString,
 )
 where
 
@@ -22,6 +23,7 @@ import qualified Data.HashMap.Strict as B
 import qualified Data.Vector as C
 import qualified System.Directory as G
 import qualified Acquire.Acquire as M
+import qualified Data.ByteString.Lazy as D
 
 
 deriving instance Functor Produce
@@ -208,3 +210,10 @@ Never stops.
 infiniteMVar :: MVar element -> Produce element
 infiniteMVar var =
   Produce $ M.Acquire (return (A.infiniteMVar var, return ()))
+
+{-# INLINE lazyByteString #-}
+lazyByteString :: D.ByteString -> Produce ByteString
+lazyByteString lbs =
+  Produce $ M.Acquire $ do
+    ref <- newIORef lbs
+    return (A.lazyByteStringRef ref, return ())
