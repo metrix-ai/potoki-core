@@ -4,10 +4,6 @@ where
 import Potoki.Core.Prelude
 import Potoki.Core.Types
 import qualified Potoki.Core.Consume as A
-import qualified Data.HashMap.Strict as B
-import qualified Data.Vector as C
-import qualified System.Directory as G
-import qualified Acquire.Acquire as M
 
 
 instance Functor Produce where
