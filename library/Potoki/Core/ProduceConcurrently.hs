@@ -62,5 +62,15 @@ instance Alternative ProduceConcurrently where
               in join (atomically (processNextElementIfExists <|> handleShutdownOfProducers))
           in processNextElement
 
+instance Semigroup (ProduceConcurrently a) where
+  (<>) = (<|>)
+
+{-|
+Provides the same interface as "Alternative".
+-}
+instance Monoid (ProduceConcurrently a) where
+  mempty = empty
+  mappend = (<|>)
+
 produce :: Produce element -> ProduceConcurrently element
 produce = ProduceConcurrently
