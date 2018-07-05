@@ -25,19 +25,22 @@ putToVarWhileActive checkIfActive elementVar =
     (do
       active <- checkIfActive
       if active
-        then empty
+        then retry
         else return False)
 
-apWhileActive :: TVar Bool -> TMVar (a -> b) -> Consume b -> Consume a
-apWhileActive activeVar element1Var (Consume consumeElement3) =
-  Consume $ \ element2 -> join $ atomically $ do
-    active <- readTVar activeVar
-    if active
-      then do
-        element1 <- takeTMVar element1Var
-        return $ do
-          activeAfterConsuming <- consumeElement3 (element1 element2)
-          if activeAfterConsuming
-            then atomically (readTVar activeVar)
-            else atomically (writeTVar activeVar False) $> False
-      else return (return False)
+apWhileActive :: STM Bool -> STM () -> TMVar (a -> b) -> Consume b -> Consume a
+apWhileActive checkIfActive signalEnd aToBVar (Consume consumeB) =
+  Consume $ \ a -> join $ atomically $
+  mplus
+    (do
+      aToB <- takeTMVar aToBVar
+      return $ do
+        active <- consumeB (aToB a)
+        atomically $ if active
+          then checkIfActive
+          else signalEnd $> False)
+    (do
+      active <- checkIfActive
+      if active
+        then retry
+        else return (return False))

@@ -11,7 +11,9 @@ newtype Consume input =
   Consume (input -> IO Bool)
 
 newtype Produce element =
-  Produce (Consume element -> IO ())
+  {-| An action, which executes the consuming action, and indicates,
+  whether the consumer is still ready to process more input. -}
+  Produce (Consume element -> IO Bool)
 
 newtype Reduce element reduction =
   Reduce (IO (Consume element, IO reduction))
