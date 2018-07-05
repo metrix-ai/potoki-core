@@ -17,15 +17,16 @@ instance Divisible Consume where
         let continue = continue1 && continue2
         return continue
 
-putToVarWhileActive :: TVar Bool -> TMVar element -> Consume element
-putToVarWhileActive activeVar elementVar =
-  Consume $ \ element -> atomically $ do
-    active <- readTVar activeVar
-    if active
-      then do
-        putTMVar elementVar element
-        return True
-      else return False
+putToVarWhileActive :: STM Bool -> TMVar element -> Consume element
+putToVarWhileActive checkIfActive elementVar =
+  Consume $ \ element -> atomically $
+  mplus
+    (putTMVar elementVar element $> True)
+    (do
+      active <- checkIfActive
+      if active
+        then empty
+        else return False)
 
 apWhileActive :: TVar Bool -> TMVar (a -> b) -> Consume b -> Consume a
 apWhileActive activeVar element1Var (Consume consumeElement3) =
