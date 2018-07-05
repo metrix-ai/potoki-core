@@ -24,9 +24,7 @@ instance Applicative ProduceConcurrently where
         atomically (writeTVar activeVar False)
 
 {-|
-Composes the producers in competition.
-If the first producer hasn't yet produced a value,
-the second one is tried.
+Composes the producers to compete whoever produces the value first.
 -}
 instance Alternative ProduceConcurrently where
   empty = ProduceConcurrently E.empty
@@ -34,21 +32,20 @@ instance Alternative ProduceConcurrently where
     ProduceConcurrently (Produce runConsume3)
     where
       runConsume3 (Consume consumeElement3) = do
-        elementVar1 <- newEmptyTMVarIO
-        elementVar2 <- newEmptyTMVarIO
+        elementVar <- newEmptyTMVarIO
         activeVar1 <- newTVarIO True
         activeVar2 <- newTVarIO True
         forkIO $ do
-          runConsume1 (A.putToVarWhileActive activeVar1 elementVar1)
+          runConsume1 (A.putToVarWhileActive activeVar1 elementVar)
           atomically (writeTVar activeVar1 False)
         forkIO $ do
-          runConsume2 (A.putToVarWhileActive activeVar2 elementVar2)
+          runConsume2 (A.putToVarWhileActive activeVar2 elementVar)
           atomically (writeTVar activeVar2 False)
         let
           processNextElement =
             let
               processNextElementIfExists = do
-                element <- takeTMVar elementVar1 <|> takeTMVar elementVar2
+                element <- takeTMVar elementVar
                 return $ do
                   active <- consumeElement3 element
                   if active
