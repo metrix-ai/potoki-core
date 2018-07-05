@@ -18,11 +18,24 @@ Unlift a concurrently composed producer.
 concurrently :: ProduceConcurrently element -> Produce element
 concurrently (ProduceConcurrently produce) = produce
 
+{-|
+Unlift a sequentially composed producer.
+-}
+sequentially :: ProduceSequentially element -> Produce element
+sequentially (ProduceSequentially produce) = produce
+
 empty :: Produce element
 empty = Produce (\ _ -> return True)
 
 singleton :: element -> Produce element
 singleton x = Produce (\ (Consume io) -> io x)
+
+apSequentially :: Produce (a -> b) -> Produce a -> Produce b
+apSequentially (Produce runConsume1) (Produce runConsume2) =
+  Produce $ \ (Consume consumeIO2) ->
+  runConsume1 $ Consume $ \ element1 ->
+  runConsume2 $ Consume $ \ element2 ->
+  consumeIO2 $ element1 element2
 
 apConcurrently :: Produce (a -> b) -> Produce a -> Produce b
 apConcurrently (Produce runConsume1) (Produce runConsume2) =
@@ -76,6 +89,14 @@ alternate (Produce runConsume1) (Produce runConsume2) =
           processNextElement
           atomically (readTVar readyToConsumeVar)
 
+prepend :: Produce a -> Produce a -> Produce a
+prepend (Produce runConsume1) (Produce runConsume2) =
+  Produce $ \ consume -> do
+    readyToConsume <- runConsume1 consume
+    if readyToConsume
+      then runConsume2 consume
+      else return False
+
 concatConcurrently :: Foldable t => t (Produce element) -> Produce element
 concatConcurrently list = Produce runConsume where
   runConsume (Consume consumeElement) = do
@@ -106,3 +127,11 @@ concatConcurrently list = Produce runConsume where
       in do
         processNextElement
         atomically (readTVar consumeIsActiveVar)
+
+bind :: Produce a -> (a -> Produce b) -> Produce b
+bind (Produce runConsume1) k2 =
+  Produce $ \ consume2 ->
+  runConsume1 $ Consume $ \ element1 ->
+  case k2 element1 of
+    Produce runConsume2 ->
+      runConsume2 consume2 $> True

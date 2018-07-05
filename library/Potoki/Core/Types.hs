@@ -26,3 +26,9 @@ A producer which composes concurrently.
 -}
 newtype ProduceConcurrently element =
   ProduceConcurrently (Produce element)
+
+{-|
+A producer which composes sequentially.
+-}
+newtype ProduceSequentially element =
+  ProduceSequentially (Produce element)

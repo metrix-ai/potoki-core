@@ -45,6 +45,7 @@ library
   exposed-modules:
     Potoki.Core.Produce
     Potoki.Core.ProduceConcurrently
+    Potoki.Core.ProduceSequentially
     Potoki.Core.Consume
   other-modules:
     Potoki.Core.Types
