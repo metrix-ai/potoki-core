@@ -17,6 +17,18 @@ instance Divisible Consume where
         let continue = continue1 && continue2
         return continue
 
+instance Semigroup (Consume a) where
+  (<>) (Consume io1) (Consume io2) =
+    Consume $ \ input -> do
+      continue1 <- io1 input
+      if continue1
+        then io2 input
+        else return False
+
+instance Monoid (Consume a) where
+  mempty = conquer
+  mappend = (<>)
+
 putToVarWhileActive :: STM Bool -> TMVar element -> Consume element
 putToVarWhileActive checkIfActive elementVar =
   Consume $ \ element -> atomically $
