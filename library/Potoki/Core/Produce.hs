@@ -135,3 +135,9 @@ bind (Produce runConsume1) k2 =
   case k2 element1 of
     Produce runConsume2 ->
       runConsume2 consume2 $> True
+
+transduce :: Transduce a b -> Produce a -> Produce b
+transduce (Transduce transduceIO) (Produce produceIO) =
+  Produce $ \ consume -> do
+    (transducedConsume, finishTransducer) <- transduceIO consume
+    produceIO transducedConsume <* finishTransducer

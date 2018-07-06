@@ -47,6 +47,9 @@ library
     Potoki.Core.ProduceConcurrently
     Potoki.Core.ProduceSequentially
     Potoki.Core.Consume
+    Potoki.Core.Transduce
+    Potoki.Core.Reduce
+    Potoki.Core.IO
   other-modules:
     Potoki.Core.Types
     Potoki.Core.Prelude
