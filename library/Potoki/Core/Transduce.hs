@@ -13,10 +13,40 @@ instance Profunctor Transduce where
       return (contramap inputMapping newConsume, finalize)
 
 reduce :: Reduce a b -> Transduce a b
-reduce (Reduce reduceIO) =
-  Transduce $ \ consume -> do
-    (reduceConsume, reduceFinish) <- reduceIO
-    undefined
+reduce (Reduce initReduceActions) =
+  Transduce $ \ (Consume consumeB) -> do
+    activeReduceActionsIfAnyRef <- newIORef Nothing
+    let transduceConsumeA = Consume $ \ a -> do
+          activeReduceActionsIfAny <- readIORef activeReduceActionsIfAnyRef
+          case activeReduceActionsIfAny of
+            Just (reduceConsumeA, reduceFinishB) -> do
+              readyToConsumeMore <- reduceConsumeA a
+              if readyToConsumeMore
+                then return True
+                else do
+                  writeIORef activeReduceActionsIfAnyRef Nothing
+                  b <- reduceFinishB
+                  consumeB b
+            Nothing -> do
+              (Consume reduceConsumeA, reduceFinishB) <- initReduceActions
+              readyToConsumeMore <- reduceConsumeA a
+              if readyToConsumeMore
+                then do
+                  writeIORef activeReduceActionsIfAnyRef (Just (reduceConsumeA, reduceFinishB))
+                  return True
+                else do
+                  b <- reduceFinishB
+                  consumeB b
+        transduceFinish = do
+          activeReduceActionsIfAny <- readIORef activeReduceActionsIfAnyRef
+          case activeReduceActionsIfAny of
+            Just (_, reduceFinishB) -> do
+              writeIORef activeReduceActionsIfAnyRef Nothing
+              b <- reduceFinishB
+              consumeB b
+              return ()
+            Nothing -> return ()
+        in return (transduceConsumeA, transduceFinish)
 
 produce :: (a -> Produce b) -> Transduce a b
 produce aToProduceB =
