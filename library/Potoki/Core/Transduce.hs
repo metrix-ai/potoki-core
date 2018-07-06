@@ -12,6 +12,21 @@ instance Profunctor Transduce where
       (newConsume, finalize) <- transduceIO (contramap outputMapping oldConsume)
       return (contramap inputMapping newConsume, finalize)
 
+instance Choice Transduce where
+  right' (Transduce transduceRight) =
+    Transduce $ \ (Consume consumeEitherOutput) -> do
+      let
+        consumeRightOutput rightOutput = do
+          consumeEitherOutput (Right rightOutput)
+        in do
+          (Consume consumeRightInput, releaseRightTransduce) <- transduceRight (Consume consumeRightOutput)
+          let
+            consumeEitherInput eitherInput = do
+              case eitherInput of
+                Left leftInput -> consumeEitherOutput (Left leftInput)
+                Right rightInput -> consumeRightInput rightInput
+            in return (Consume consumeEitherInput, releaseRightTransduce)
+
 reduce :: Reduce a b -> Transduce a b
 reduce (Reduce initReduceActions) =
   Transduce $ \ (Consume consumeB) -> do
