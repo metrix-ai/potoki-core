@@ -21,9 +21,8 @@ instance Semigroup (Consume a) where
   (<>) (Consume io1) (Consume io2) =
     Consume $ \ input -> do
       continue1 <- io1 input
-      if continue1
-        then io2 input
-        else return False
+      continue2 <- io2 input
+      return (continue1 && continue2)
 
 instance Monoid (Consume a) where
   mempty = conquer
