@@ -27,6 +27,22 @@ instance Choice Transduce where
                 Right rightInput -> consumeRightInput rightInput
             in return (Consume consumeEitherInput, releaseRightTransduce)
 
+instance Strong Transduce where
+  second' (Transduce transduceSecond) =
+    Transduce $ \ (Consume consumeBothOutput) -> do
+      firstInputRef <- newIORef undefined
+      let
+        consumeSecondOutput secondOutput = do
+          firstInput <- readIORef firstInputRef
+          consumeBothOutput (firstInput, secondOutput)
+        in do
+          (Consume consumeSecondInput, releaseSecondTransduce) <- transduceSecond (Consume consumeSecondOutput)
+          let
+            consumeBothInput (firstInput, secondInput) = do
+              writeIORef firstInputRef firstInput
+              consumeSecondInput secondInput
+            in return (Consume consumeBothInput, releaseSecondTransduce)
+
 reduce :: Reduce a b -> Transduce a b
 reduce (Reduce initReduceActions) =
   Transduce $ \ (Consume consumeB) -> do
