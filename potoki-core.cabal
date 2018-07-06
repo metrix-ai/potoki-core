@@ -51,7 +51,6 @@ library
     Potoki.Core.Types
     Potoki.Core.Prelude
   build-depends:
-    acquire >=0.2 && <0.3,
     base >=4.7 && <5,
     contravariant >=1.4 && <2,
     profunctors >=5.2 && <6,

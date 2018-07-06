@@ -19,7 +19,7 @@ newtype Reduce element reduction =
   Reduce (IO (Consume element, IO reduction))
 
 newtype Transduce input output =
-  Transduce (Consume input -> Acquire (Consume output))
+  Transduce (Consume output -> IO (Consume input, IO ()))
 
 {-|
 A producer which composes concurrently.

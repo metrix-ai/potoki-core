@@ -91,10 +91,6 @@ import Data.Profunctor.Strong as Exports
 -------------------------
 import Control.Concurrent.STM as Exports
 
--- acquire
--------------------------
-import Acquire.Acquire as Exports
-
 -- text
 -------------------------
 import Data.Text as Exports (Text)
