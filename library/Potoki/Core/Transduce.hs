@@ -43,6 +43,14 @@ instance Strong Transduce where
               consumeSecondInput secondInput
             in return (Consume consumeBothInput, releaseSecondTransduce)
 
+instance Category Transduce where
+  id = Transduce $ \ consume -> return (consume, return ())
+  (.) (Transduce transduceBToC) (Transduce transduceAToB) =
+    Transduce $ \ consumeC -> do
+      (consumeB, finishTransduceBToC) <- transduceBToC consumeC
+      (consumeA, finishTransduceAToB) <- transduceAToB consumeB
+      return (consumeA, finishTransduceAToB *> finishTransduceBToC)
+
 reduce :: Reduce a b -> Transduce a b
 reduce (Reduce initReduceActions) =
   Transduce $ \ (Consume consumeB) -> do
