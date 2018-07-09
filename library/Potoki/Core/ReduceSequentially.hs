@@ -50,6 +50,9 @@ instance Monad (ReduceSequentially input) where
             Nothing -> return Nothing
         in return (Consume consumeOfB, extractB)
 
+instance Semigroupoid ReduceSequentially where
+  o = (.)
+
 instance Category ReduceSequentially where
   id = ReduceSequentially $ Reduce $ do
     headRef <- newIORef Nothing

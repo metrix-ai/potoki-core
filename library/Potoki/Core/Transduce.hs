@@ -43,6 +43,9 @@ instance Strong Transduce where
               consumeSecondInput secondInput
             in return (Consume consumeBothInput, releaseSecondTransduce)
 
+instance Semigroupoid Transduce where
+  o = (.)
+
 instance Category Transduce where
   id = Transduce $ \ consume -> return (consume, return ())
   (.) (Transduce transduceBToC) (Transduce transduceAToB) =
