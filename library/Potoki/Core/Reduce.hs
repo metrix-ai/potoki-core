@@ -15,15 +15,42 @@ instance Functor (Reduce input) where
 instance Pointed (Reduce input) where
   point x = Reduce (return (conquer, return x))
 
-instance Applicative (Reduce input) where
-  pure = point
-  (<*>) (Reduce io1) (Reduce io2) =
+instance Semigroupoid Reduce where
+  o (Reduce reduceBToC) (Reduce reduceAToB) =
     Reduce $ do
-      (consume1, finish1) <- io1
-      (consume2, finish2) <- io2
-      let newConsume = consume1 <> consume2
-          newFinish = finish1 <*> finish2
-          in return (newConsume, newFinish)
+      stateRef <- newIORef Nothing
+      (Consume consumeB, extractC) <- reduceBToC
+      let consume a = do
+            state <- readIORef stateRef
+            case state of
+              Nothing -> do
+                (Consume consumeA, extractB) <- reduceAToB
+                readyForMore <- consumeA a
+                if readyForMore
+                  then do
+                    writeIORef stateRef (Just (consumeA, extractB))
+                    return True
+                  else do
+                    b <- extractB
+                    consumeB b
+              Just (consumeA, extractB) -> do
+                readyForMore <- consumeA a
+                if readyForMore
+                  then return True
+                  else do
+                    writeIORef stateRef Nothing
+                    b <- extractB
+                    consumeB b
+          extract = do
+            state <- readIORef stateRef
+            case state of
+              Nothing -> extractC
+              Just (_, extractB) -> do
+                writeIORef stateRef Nothing
+                b <- extractB
+                consumeB b
+                extractC
+      return (Consume consume, extract)
 
 transduce :: Transduce a b -> Reduce b c -> Reduce a c
 transduce (Transduce transduceIO) (Reduce reduceIO) =

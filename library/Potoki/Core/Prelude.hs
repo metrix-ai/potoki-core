@@ -87,6 +87,10 @@ import Data.Profunctor.Unsafe as Exports
 import Data.Profunctor.Choice as Exports
 import Data.Profunctor.Strong as Exports
 
+-- semigroupoids
+-------------------------
+import Data.Semigroupoid as Exports
+
 -- stm
 -------------------------
 import Control.Concurrent.STM as Exports
