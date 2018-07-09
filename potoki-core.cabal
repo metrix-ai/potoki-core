@@ -1,7 +1,7 @@
 name:
   potoki-core
 version:
-  2.2.1
+  2.2.1.1
 synopsis:
   Low-level components of "potoki"
 description:
@@ -11,9 +11,9 @@ description:
 category:
   Streaming
 homepage:
-  https://github.com/metrix-ai/potoki-core 
+  https://github.com/metrix-ai/potoki-core
 bug-reports:
-  https://github.com/metrix-ai/potoki-core/issues 
+  https://github.com/metrix-ai/potoki-core/issues
 author:
   Nikita Volkov <nikita.y.volkov@mail.ru>
 maintainer:
