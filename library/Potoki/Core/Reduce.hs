@@ -52,6 +52,31 @@ instance Semigroupoid Reduce where
                 extractC
       return (Consume consume, extract)
 
+instance Profunctor Reduce where
+  dimap :: (a -> b) -> (c -> d) -> Reduce b c -> Reduce a d
+  dimap aToB cToD (Reduce reduceBToC) =
+    Reduce $ do
+      (consumeB, extractC) <- reduceBToC
+      return (contramap aToB consumeB, fmap cToD extractC)
+
+instance Choice Reduce where
+  right' :: Reduce a b -> Reduce (Either c a) (Either c b)
+  right' (Reduce reduceAToB) =
+    Reduce $ do
+      stateRef <- newIORef Nothing
+      (Consume consumeA, extractB) <- reduceAToB
+      let consumeCOrA = \case
+            Right a -> consumeA a
+            Left c -> do
+              writeIORef stateRef (Just c)
+              return False
+          extractCOrB = do
+            state <- readIORef stateRef
+            case state of
+              Nothing -> fmap Right extractB
+              Just c -> return (Left c)
+          in return (Consume consumeCOrA, extractCOrB)
+
 transduce :: Transduce a b -> Reduce b c -> Reduce a c
 transduce (Transduce transduceIO) (Reduce reduceIO) =
   Reduce $ do
