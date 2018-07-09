@@ -101,5 +101,48 @@ instance Category ReduceSequentially where
                   Nothing -> return Nothing
       return (Consume consume, extract)
 
+instance Arrow ReduceSequentially where
+  arr fn = ReduceSequentially $ Reduce $ do
+    outputRef <- newIORef Nothing
+    let consume x = do
+          writeIORef outputRef (Just (fn x))
+          return False
+        extract = readIORef outputRef
+        in return (Consume consume, extract)
+  first = first'
+  second = second'
+
+instance ArrowChoice ReduceSequentially where
+  left = left'
+  right = right'
+
+instance Profunctor ReduceSequentially where
+  dimap fn1 fn2 (ReduceSequentially reduce) =
+    ReduceSequentially (dimap fn1 (fmap fn2) reduce)
+
+instance Strong ReduceSequentially where
+  first' :: ReduceSequentially a b -> ReduceSequentially (a, c) (b, c)
+  first' (ReduceSequentially (Reduce reduceAToB)) = ReduceSequentially $ Reduce $ do
+    maybeCRef <- newIORef Nothing
+    (Consume consumeA, extractB) <- reduceAToB 
+    let consumeAAndC (a, c) = do
+          writeIORef maybeCRef (Just c)
+          consumeA a
+        extractBAndC = do
+          maybeB <- extractB
+          case maybeB of
+            Just b -> do
+              maybeC <- readIORef maybeCRef
+              case maybeC of
+                Just c -> return (Just (b, c))
+                Nothing -> return Nothing
+            Nothing -> return Nothing
+        in return (Consume consumeAAndC, extractBAndC)
+
+instance Choice ReduceSequentially where
+  right' :: ReduceSequentially a b -> ReduceSequentially (Either c a) (Either c b)
+  right' (ReduceSequentially reduce) =
+    ReduceSequentially (fmap sequence (right' reduce))
+
 reduce :: Reduce a b -> ReduceSequentially a b
 reduce reduce = ReduceSequentially (fmap Just reduce)
