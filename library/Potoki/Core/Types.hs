@@ -18,6 +18,9 @@ newtype Produce element =
 newtype Reduce element reduction =
   Reduce (IO (Consume element, IO reduction))
 
+newtype ReduceZipping element reduction =
+  ReduceZipping (Reduce element reduction)
+
 newtype Transduce input output =
   Transduce (Consume output -> IO (Consume input, IO ()))
 

@@ -83,3 +83,6 @@ transduce (Transduce transduceIO) (Reduce reduceIO) =
     (consume, finishReduce) <- reduceIO
     (transducedConsume, finishTransduce) <- transduceIO consume
     return (transducedConsume, finishTransduce *> finishReduce)
+
+zipping :: ReduceZipping a b -> Reduce a b
+zipping (ReduceZipping reduce) = reduce

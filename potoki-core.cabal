@@ -49,6 +49,7 @@ library
     Potoki.Core.Consume
     Potoki.Core.Transduce
     Potoki.Core.Reduce
+    Potoki.Core.ReduceZipping
     Potoki.Core.IO
   other-modules:
     Potoki.Core.Types
