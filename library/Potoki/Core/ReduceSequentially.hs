@@ -8,13 +8,10 @@ import qualified Potoki.Core.Reduce as B
 
 
 instance Functor (ReduceSequentially input) where
-  fmap fn (ReduceSequentially io) =
-    ReduceSequentially $ do
-      (consume, finish) <- io
-      return (consume, (fmap . fmap) fn finish)
+  fmap fn (ReduceSequentially reduce) = ReduceSequentially (fmap (fmap fn) reduce)
 
 instance Pointed (ReduceSequentially input) where
-  point x = ReduceSequentially (return (conquer, return (Just x)))
+  point x = ReduceSequentially (point (Just x))
 
 instance Applicative (ReduceSequentially input) where
   pure = point
@@ -23,8 +20,8 @@ instance Applicative (ReduceSequentially input) where
 instance Monad (ReduceSequentially input) where
   return = point
   (>>=) :: ReduceSequentially x a -> (a -> ReduceSequentially x b) -> ReduceSequentially x b
-  (>>=) (ReduceSequentially reduceA) aToReduceB =
-    ReduceSequentially $ do
+  (>>=) (ReduceSequentially (Reduce reduceA)) aToReduceB =
+    ReduceSequentially $ Reduce $ do
       stateRef <- newIORef Nothing
       (Consume consumeOfA, extractA) <- reduceA
       let
@@ -41,7 +38,7 @@ instance Monad (ReduceSequentially input) where
                   maybeA <- extractA
                   case maybeA of
                     Just a -> case aToReduceB a of
-                      ReduceSequentially reduceB -> do
+                      ReduceSequentially (Reduce reduceB) -> do
                         (Consume consumeOfB, extractB) <- reduceB
                         writeIORef stateRef (Just (consumeOfB, extractB))
                         return True
@@ -54,6 +51,4 @@ instance Monad (ReduceSequentially input) where
         in return (Consume consumeOfB, extractB)
 
 reduce :: Reduce a b -> ReduceSequentially a b
-reduce (Reduce reduceAToB) = ReduceSequentially $ do
-  (consumeA, extractB) <- reduceAToB
-  return (consumeA, fmap Just extractB)
+reduce reduce = ReduceSequentially (fmap Just reduce)

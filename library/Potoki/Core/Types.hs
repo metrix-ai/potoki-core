@@ -19,7 +19,7 @@ newtype Reduce element reduction =
   Reduce (IO (Consume element, IO reduction))
 
 newtype ReduceSequentially element reduction =
-  ReduceSequentially (IO (Consume element, IO (Maybe reduction)))
+  ReduceSequentially (Reduce element (Maybe reduction))
 
 newtype ReduceZipping element reduction =
   ReduceZipping (Reduce element reduction)
