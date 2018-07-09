@@ -51,6 +51,15 @@ instance Category Transduce where
       (consumeA, finishTransduceAToB) <- transduceAToB consumeB
       return (consumeA, finishTransduceAToB *> finishTransduceBToC)
 
+instance Arrow Transduce where
+  arr fn = Transduce $ \ consume -> return (contramap fn consume, return ())
+  first = first'
+  second = second'
+
+instance ArrowChoice Transduce where
+  left = left'
+  right = right'
+
 reduce :: Reduce a b -> Transduce a b
 reduce (Reduce initReduceActions) =
   Transduce $ \ (Consume consumeB) -> do
