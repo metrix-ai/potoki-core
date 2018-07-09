@@ -1,4 +1,8 @@
 module Potoki.Core.ReduceZipping
+(
+  ReduceZipping(..),
+  reduce,
+)
 where
 
 import Potoki.Core.Prelude

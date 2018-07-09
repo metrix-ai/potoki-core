@@ -1,4 +1,8 @@
 module Potoki.Core.ProduceConcurrently
+(
+  ProduceConcurrently(..),
+  produce,
+)
 where
 
 import Potoki.Core.Prelude

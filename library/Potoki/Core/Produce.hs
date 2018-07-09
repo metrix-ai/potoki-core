@@ -1,7 +1,21 @@
 module Potoki.Core.Produce
+(
+  Produce(..),
+  concurrently,
+  sequentially,
+  empty,
+  singleton,
+  apSequentially,
+  apConcurrently,
+  alternate,
+  prepend,
+  concatConcurrently,
+  bind,
+  transduce,
+)
 where
 
-import Potoki.Core.Prelude
+import Potoki.Core.Prelude hiding (empty)
 import Potoki.Core.Types
 import qualified Potoki.Core.Consume as A
 

@@ -1,4 +1,9 @@
 module Potoki.Core.Transduce
+(
+  Transduce(..),
+  produce,
+  reduce,
+)
 where
 
 import Potoki.Core.Prelude

@@ -1,4 +1,10 @@
 module Potoki.Core.Reduce
+(
+  Reduce(..),
+  zipping,
+  sequentially,
+  transduce,
+)
 where
 
 import Potoki.Core.Prelude

@@ -1,4 +1,8 @@
 module Potoki.Core.ReduceSequentially
+(
+  ReduceSequentially(..),
+  reduce,
+)
 where
 
 import Potoki.Core.Prelude

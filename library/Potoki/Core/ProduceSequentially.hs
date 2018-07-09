@@ -1,4 +1,8 @@
 module Potoki.Core.ProduceSequentially
+(
+  ProduceSequentially(..),
+  produce,
+)
 where
 
 import Potoki.Core.Prelude

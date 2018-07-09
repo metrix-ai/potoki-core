@@ -1,4 +1,9 @@
 module Potoki.Core.Consume
+(
+  Consume(..),
+  putToVarWhileActive,
+  apWhileActive,
+)
 where
 
 import Potoki.Core.Prelude hiding (sum, head, fold, concat, last)
