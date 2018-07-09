@@ -50,5 +50,56 @@ instance Monad (ReduceSequentially input) where
             Nothing -> return Nothing
         in return (Consume consumeOfB, extractB)
 
+instance Category ReduceSequentially where
+  id = ReduceSequentially $ Reduce $ do
+    headRef <- newIORef Nothing
+    let consume x = do
+          writeIORef headRef (Just x)
+          return False
+        extract = readIORef headRef
+        in return (Consume consume, extract)
+  (.) (ReduceSequentially (Reduce reduceBToC)) (ReduceSequentially (Reduce reduceAToB)) =
+    ReduceSequentially $ Reduce $ do
+      stateRef <- newIORef Nothing
+      (Consume consumeB, extractC) <- reduceBToC
+      let consume a = do
+            state <- readIORef stateRef
+            case state of
+              Nothing -> do
+                (Consume consumeA, extractB) <- reduceAToB
+                readyForMore <- consumeA a
+                if readyForMore
+                  then do
+                    writeIORef stateRef (Just (consumeA, extractB))
+                    return True
+                  else do
+                    maybeB <- extractB
+                    case maybeB of
+                      Just b -> consumeB b
+                      Nothing -> return False
+              Just (consumeA, extractB) -> do
+                readyForMore <- consumeA a
+                if readyForMore
+                  then return True
+                  else do
+                    writeIORef stateRef Nothing
+                    maybeB <- extractB
+                    case maybeB of
+                      Just b -> consumeB b
+                      Nothing -> return False
+          extract = do
+            state <- readIORef stateRef
+            case state of
+              Nothing -> extractC
+              Just (_, extractB) -> do
+                writeIORef stateRef Nothing
+                maybeB <- extractB
+                case maybeB of
+                  Just b -> do
+                    consumeB b
+                    extractC
+                  Nothing -> return Nothing
+      return (Consume consume, extract)
+
 reduce :: Reduce a b -> ReduceSequentially a b
 reduce reduce = ReduceSequentially (fmap Just reduce)
