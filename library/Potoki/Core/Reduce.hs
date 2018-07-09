@@ -86,3 +86,6 @@ transduce (Transduce transduceIO) (Reduce reduceIO) =
 
 zipping :: ReduceZipping a b -> Reduce a b
 zipping (ReduceZipping reduce) = reduce
+
+sequentially :: ReduceSequentially a b -> Reduce a (Maybe b)
+sequentially (ReduceSequentially reduce) = reduce
