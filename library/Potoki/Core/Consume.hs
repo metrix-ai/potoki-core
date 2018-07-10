@@ -3,6 +3,7 @@ module Potoki.Core.Consume where
 import Potoki.Core.Prelude
 import qualified Potoki.Core.Fetch as A
 import qualified Potoki.Core.Transform.Types as B
+import qualified Control.Foldl as D
 
 
 {-|
@@ -27,7 +28,7 @@ instance Choice Consume where
   right' (Consume rightConsumeIO) =
     Consume $ \ (A.Fetch eitherFetchIO) -> do
       fetchedLeftMaybeRef <- newIORef Nothing
-      consumedRight <- 
+      consumedRight <-
         rightConsumeIO $ A.Fetch $ \ nil just -> join $ eitherFetchIO (return nil) $ \ case
           Right !fetchedRight -> return (just fetchedRight)
           Left !fetchedLeft -> writeIORef fetchedLeftMaybeRef (Just fetchedLeft) >> return nil
@@ -93,3 +94,19 @@ sum =
 transform :: B.Transform input output -> Consume output sinkOutput -> Consume input sinkOutput
 transform (B.Transform transform) (Consume sink) =
   Consume (transform >=> sink)
+
+{-# INLINABLE fold #-}
+fold :: D.Fold input output -> Consume input output
+fold (D.Fold step init finish) =
+  Consume $ \ (A.Fetch fetch) -> build fetch init
+  where
+    build fetch !accumulator =
+      join (fetch (pure (finish accumulator)) (\ !input -> build fetch (step accumulator input)))
+
+{-# INLINABLE count #-}
+count :: Consume input Int
+count =
+  Consume $ \ (A.Fetch fetchIO) -> build fetchIO 0
+  where
+    build fetchIO !acc =
+      join (fetchIO (pure acc) (const (build fetchIO (succ acc))))
