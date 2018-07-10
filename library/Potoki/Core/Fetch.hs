@@ -1,49 +1,52 @@
-module Potoki.Core.Fetch where
+module Potoki.Core.Fetch
+(
+  Fetch(..),
+  duplicate,
+  maybeRef,
+  list,
+  firstCachingSecond,
+  bothFetchingFirst,
+  rightHandlingLeft,
+  rightCachingLeft,
+  eitherFetchingRight,
+  signaling,
+  ioFetch,
+  handleBytes,
+  handleBytesWithChunkSize,
+  handleText,
+  mapFilter,
+  filter,
+  just,
+  takeWhile,
+  infiniteMVar,
+  finiteMVar,
+  vector,
+  handlingElements,
+  lazyByteStringRef,
+)
+where
 
-import Potoki.Core.Prelude
-import qualified Data.ByteString.Lazy as A
-import qualified Data.ByteString.Lazy.Internal as A
-
-
-{-|
-Passive producer of elements.
--}
-newtype Fetch element =
-  {-|
-  Something close to a Church encoding of @IO (Maybe element)@.
-  -}
-  Fetch (forall x. x -> (element -> x) -> IO x)
+import Potoki.Core.Prelude hiding (filter, takeWhile)
+import Potoki.Core.Types
+import qualified Data.Vector as C
+import qualified Data.ByteString as D
+import qualified Data.Text.IO as A
+import qualified Data.ByteString.Lazy as B
+import qualified Data.ByteString.Lazy.Internal as B
 
 deriving instance Functor Fetch
 
 instance Applicative Fetch where
   pure x =
-    Fetch (\ nil just -> pure (just x))
-  (<*>) (Fetch leftFn) (Fetch rightFn) =
-    Fetch (\ nil just ->
-      join (leftFn (pure nil) (\ leftElement ->
-        rightFn nil (\ rightElement -> just (leftElement rightElement)))))
-
-instance Monad Fetch where
-  return =
-    pure
-  (>>=) (Fetch leftFn) rightK =
-    Fetch (\ nil just ->
-      join (leftFn (pure nil) (\ leftElement ->
-        case rightK leftElement of
-          Fetch rightFn -> rightFn nil just)))
+    Fetch (pure (Just x))
+  (<*>) (Fetch leftIO) (Fetch rightIO) =
+    Fetch ((<*>) <$> leftIO <*> rightIO)
 
 instance Alternative Fetch where
   empty =
-    Fetch (\ nil just -> pure nil)
-  (<|>) (Fetch leftSignal) (Fetch rightSignal) =
-    Fetch (\ nil just -> join (leftSignal (rightSignal nil just) (pure . just)))
-
-instance MonadPlus Fetch where
-  mzero =
-    empty
-  mplus =
-    (<|>)
+    Fetch (pure Nothing)
+  (<|>) (Fetch leftIO) (Fetch rightIO) =
+    Fetch ((<|>) <$> leftIO <*> rightIO)
 
 {-# INLINABLE duplicate #-}
 duplicate :: Fetch element -> IO (Fetch element, Fetch element)
@@ -55,102 +58,238 @@ duplicate (Fetch fetchIO) =
     notEndVar <- newTVarIO True
     let
       newFetch ownBuffer mirrorBuffer =
-        Fetch
-          (\ nil just -> do
-            join
-              (atomically
-                (mplus
-                  (do
-                    element <- readTQueue ownBuffer
-                    return (return (just element)))
-                  (do
-                    notEnd <- readTVar notEndVar
-                    if notEnd
-                      then do
-                        notFetching <- readTVar notFetchingVar
-                        guard notFetching
-                        writeTVar notFetchingVar False
-                        return
-                          (join
-                            (fetchIO
-                              (do
-                                atomically
-                                  (do
-                                    writeTVar notEndVar False
-                                    writeTVar notFetchingVar True)
-                                return nil)
-                              (\ !element -> do
-                                atomically
-                                  (do
-                                    writeTQueue mirrorBuffer element
-                                    writeTVar notFetchingVar True)
-                                return (just element))))
-                      else return (return nil)))))
+        Fetch $ do
+          fetch <- fetchIO
+          join $
+            atomically
+             (mplus
+                (do
+                   element <- readTQueue ownBuffer
+                   return $ return (Just element)
+                )
+                (do
+                   notEnd <- readTVar notEndVar
+                   if notEnd
+                     then do
+                       notFetching <- readTVar notFetchingVar
+                       guard notFetching
+                       writeTVar notFetchingVar False
+                       return $ case fetch of
+                         Nothing      -> do
+                           atomically
+                             (do
+                                writeTVar notEndVar False
+                                writeTVar notFetchingVar True
+                             )
+                           return Nothing
+                         Just !element -> do
+                           atomically
+                             (do
+                                writeTQueue mirrorBuffer element
+                                writeTVar notFetchingVar True
+                             )
+                           return $ Just element
+                     else return $ return Nothing
+                )
+             )
       leftFetch =
         newFetch leftBuffer rightBuffer
       rightFetch =
         newFetch rightBuffer leftBuffer
-      in return (leftFetch, rightFetch)
+     in return (leftFetch, rightFetch)
+
+{-# INLINABLE maybeRef #-}
+maybeRef :: IORef (Maybe a) -> Fetch a
+maybeRef refElem =
+  Fetch $ do
+    elemVal <- readIORef refElem
+    case elemVal of
+      Nothing      -> return Nothing
+      Just element -> do
+        writeIORef refElem Nothing
+        return $ Just element
 
 {-# INLINABLE list #-}
 list :: IORef [element] -> Fetch element
 list unsentListRef =
-  Fetch $ \ nil just -> atomicModifyIORef' unsentListRef $ \ case
-    (!head) : tail -> (tail, just head)
-    _ -> ([], nil)
+  Fetch $ do
+    refList <- readIORef unsentListRef
+    case refList of
+      (!headVal) : (!tailVal) -> do
+        writeIORef unsentListRef tailVal
+        return $ Just headVal
+      _              -> do
+        writeIORef unsentListRef []
+        return Nothing
 
 {-# INLINABLE firstCachingSecond #-}
 firstCachingSecond :: IORef b -> Fetch (a, b) -> Fetch a
-firstCachingSecond stateRef (Fetch bothFetchIO) =
-  Fetch $ \ nil just ->
-  join $
-  bothFetchIO
-    (return nil)
-    (\ (!first, !second) -> do
-      writeIORef stateRef second
-      return (just first))
+firstCachingSecond cacheRef (Fetch bothFetchIO) =
+  Fetch $ do
+    bothFetch <- bothFetchIO
+    case bothFetch of
+      Nothing                -> return Nothing
+      Just (!firstVal, !secondVal) -> do
+        writeIORef cacheRef secondVal
+        return $ Just firstVal
 
 {-# INLINABLE bothFetchingFirst #-}
 bothFetchingFirst :: IORef b -> Fetch a -> Fetch (a, b)
-bothFetchingFirst stateRef (Fetch firstFetchIO) =
-  Fetch $ \ nil just ->
-  join $
-  firstFetchIO
-    (return nil)
-    (\ !firstFetched -> do
-      secondCached <- readIORef stateRef
-      return (just (firstFetched, secondCached)))
+bothFetchingFirst cacheRef (Fetch firstFetchIO) =
+  Fetch $ do
+    firstFetch <- firstFetchIO
+    case firstFetch of
+      Nothing            -> return Nothing
+      Just !firstFetched -> do
+        secondCached <- readIORef cacheRef
+        return $ Just (firstFetched, secondCached)
+
+{-# INLINABLE rightHandlingLeft #-}
+rightHandlingLeft :: (left -> IO ()) -> Fetch (Either left right) -> Fetch right
+rightHandlingLeft left2IO (Fetch eitherFetchIO) =
+  Fetch $ do
+    eitherFetch <- eitherFetchIO
+    case eitherFetch of
+      Nothing    -> return Nothing
+      Just input -> case input of
+        Right rightInput -> return $ Just rightInput
+        Left  leftInput  -> left2IO leftInput $> Nothing
 
 {-# INLINABLE rightCachingLeft #-}
 rightCachingLeft :: IORef (Maybe left) -> Fetch (Either left right) -> Fetch right
-rightCachingLeft stateRef (Fetch eitherFetchIO) =
-  Fetch $ \ nil just ->
-  join $ eitherFetchIO (return nil) $ \ case
-    Right !rightInput -> return (just rightInput)
-    Left !leftInput -> writeIORef stateRef (Just leftInput) $> nil
+rightCachingLeft cacheRef =
+  rightHandlingLeft (writeIORef cacheRef . Just)
 
 {-# INLINABLE eitherFetchingRight #-}
 eitherFetchingRight :: IORef (Maybe left) -> Fetch right -> Fetch (Either left right)
-eitherFetchingRight stateRef (Fetch rightFetchIO) =
-  Fetch $ \ nil just ->
-  join $ rightFetchIO (return nil) $ \ right ->
-  atomicModifyIORef' stateRef $ \ case
-    Nothing -> (Nothing, just (Right right))
-    Just left -> (Nothing, just (Left left))
+eitherFetchingRight cacheRef (Fetch rightFetchIO) =
+  Fetch $ do
+    rightFetch <- rightFetchIO
+    case rightFetch of
+      Nothing -> return Nothing
+      Just r  -> atomicModifyIORef' cacheRef $ \ case
+        Nothing -> (Nothing, Just $ Right r)
+        Just l  -> (Nothing, Just $ Left  l)
 
-{-# INLINE ioMaybe #-}
-ioMaybe :: IO (Maybe a) -> Fetch a
-ioMaybe io =
-  Fetch $ \nil just -> maybe nil just <$> io
+{-# INLINABLE signaling #-}
+signaling :: IO () -> IO () -> Fetch a -> Fetch a
+signaling signalEnd signalElement (Fetch fetchIO) =
+  Fetch $ do
+    fetch <- fetchIO
+    case fetch of
+      Nothing      -> signalEnd $> Nothing
+      Just element -> signalElement >> return (Just element)
+
+{-# INLINABLE ioFetch #-}
+ioFetch :: IO (Fetch a) -> Fetch a
+ioFetch fetchIO =
+  Fetch $ do
+    Fetch fetch <- fetchIO
+    fetch
+
+{-# INLINABLE handleBytes #-}
+handleBytes :: Handle -> Fetch (Either IOException ByteString)
+handleBytes =
+  handleBytesWithChunkSize ioChunkSize
+
+{-# INLINABLE handleBytesWithChunkSize #-}
+handleBytesWithChunkSize :: Int -> Handle -> Fetch (Either IOException ByteString)
+handleBytesWithChunkSize chunkSize handleVal =
+  Fetch $ do
+    chunk <- try (D.hGetSome handleVal chunkSize)
+    case chunk of
+      Right "" -> return Nothing
+      _ -> return (Just chunk)
+
+{-# INLINABLE handleText #-}
+handleText :: Handle -> Fetch (Either IOException Text)
+handleText handleVal =
+  Fetch $ do
+    chunk <- try (A.hGetChunk handleVal)
+    case chunk of
+      Right "" -> return Nothing
+      _ -> return (Just chunk)
+
+{-# INLINABLE mapFilter #-}
+mapFilter :: (input -> Maybe output) -> Fetch input -> Fetch output
+mapFilter mapping (Fetch fetchIO) =
+  Fetch $ 
+  fix $ \ doLoop -> do 
+    fetch <- fetchIO
+    case mapping <$> fetch of
+      Just (Just output) -> return (Just output)
+      Just Nothing -> doLoop
+      Nothing -> return Nothing
+
+{-# INLINABLE filter #-}
+filter :: (input -> Bool) -> Fetch input -> Fetch input
+filter predicate (Fetch fetchIO) =
+  Fetch $ 
+  fix $ \ doLoop -> do 
+    fetch <- fetchIO
+    case predicate <$> fetch of
+      Just True -> return fetch
+      Just False -> doLoop
+      Nothing -> return Nothing
+
+
+{-# INLINABLE just #-}
+just :: Fetch (Maybe element) -> Fetch element
+just (Fetch fetchIO) =
+  Fetch $ 
+  fix $ \ doLoop -> do 
+    fetch <- fetchIO
+    case fetch of
+      Just (Just element) -> return (Just element)
+      Just (Nothing) -> doLoop
+      Nothing -> return Nothing
+
+{-# INLINABLE takeWhile #-}
+takeWhile :: (element -> Bool) -> Fetch element -> Fetch element
+takeWhile predicate (Fetch fetchIO) =
+  Fetch $ do
+    fetch <- fetchIO
+    case predicate <$> fetch of
+      Just True -> return fetch
+      _ -> return Nothing
+
+{-# INLINABLE infiniteMVar #-}
+infiniteMVar :: MVar element -> Fetch element
+infiniteMVar var =
+  Fetch $ fmap Just $ takeMVar var
+
+{-# INLINABLE finiteMVar #-}
+finiteMVar :: MVar (Maybe element) -> Fetch element
+finiteMVar var =
+  Fetch $ takeMVar var
+
+{-# INLINABLE vector #-}
+vector :: IORef Int -> Vector element -> Fetch element
+vector indexRef vectorVal =
+  Fetch $ do
+    indexVal <- readIORef indexRef
+    if indexVal < C.length vectorVal
+      then do
+        writeIORef indexRef (succ indexVal)
+        return (Just (C.unsafeIndex vectorVal indexVal))
+      else return Nothing
+
+{-# INLINABLE handlingElements #-}
+handlingElements :: (element -> IO ()) -> Fetch element -> Fetch element
+handlingElements xRay (Fetch fetchIO) =
+  Fetch $ do
+    mbElement <- fetchIO
+    case mbElement of
+      Just element -> xRay element $> mbElement
+      Nothing -> return Nothing
 
 {-# INLINE lazyByteStringRef #-}
-lazyByteStringRef :: IORef A.ByteString -> Fetch ByteString
+lazyByteStringRef :: IORef B.ByteString -> Fetch ByteString
 lazyByteStringRef ref =
-  Fetch $ \ nil just ->
-  do
+  Fetch $ do
     lazyByteString <- readIORef ref
     case lazyByteString of
-      A.Chunk chunk remainders -> do
+      B.Chunk chunk remainders -> do
         writeIORef ref remainders
-        return (just chunk)
-      A.Empty -> return nil
+        return (Just chunk)
+      B.Empty -> return Nothing

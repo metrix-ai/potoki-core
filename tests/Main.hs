@@ -3,6 +3,7 @@ module Main where
 import Prelude hiding (first, second)
 import Control.Arrow
 import Test.QuickCheck.Instances
+import Test.QuickCheck.Monadic as M
 import Test.Tasty
 import Test.Tasty.Runners
 import Test.Tasty.HUnit
@@ -11,8 +12,14 @@ import qualified Potoki.Core.IO as C
 import qualified Potoki.Core.Consume as D
 import qualified Potoki.Core.Transform as A
 import qualified Potoki.Core.Produce as E
+import qualified Potoki.Core.Fetch as Fe
+import qualified Data.Attoparsec.ByteString.Char8 as B
+import qualified Data.ByteString as F
 import qualified Data.Vector as G
-
+import qualified System.Random as H
+import qualified Acquire.Acquire as Ac
+import Potoki
+import Transform
 
 main =
   defaultMain $
@@ -24,143 +31,191 @@ main =
     testProperty "consecutive consumers" $ \ (list :: [Int], amount) ->
     list === unsafePerformIO (C.produceAndConsume (E.list list) ((++) <$> D.transform (A.take amount) D.list <*> D.list))
     ,
+    potoki
+    ,
     transform
+    ,
+    resourceChecker
+    ,
+    testCase "sync resource checker" $ do
+      resourceVar <- newIORef Initial
+      let produce = syncCheckResource resourceVar
+      C.produceAndConsume produce D.sum
+      fin <- readIORef resourceVar
+      assertEqual "" Released fin
+    ,
+    testCase "async resource checker" $ do
+      resourceVar <- newTVarIO Initial
+      let produce = asyncCheckResource resourceVar
+      potokiThreadId <- forkIO $ do
+          C.produceAndConsume produce D.sum
+          return ()
+      atomically $ do
+        resource <- readTVar resourceVar
+        guard $ resource == Acquired
+      killThread potokiThreadId
+      atomically $ do
+        resource <- readTVar resourceVar
+        guard $ resource == Released
+    ,
+    testProperty "Produce.transform resource checker" $ \ (list :: [Int]) ->
+    let prod = E.list list
+    in monadicIO $ do
+      check <- run $ do
+        resourceVar1 <-  newIORef Initial
+        res <- C.produceAndConsume (E.transform (checkTransform resourceVar1) prod) D.sum
+        readIORef resourceVar1
+      M.assert $ check == Released
+    ,
+    testProperty "Consume.transform resource checker" $ \ (list :: [Int]) ->
+    let prod = E.list list
+    in monadicIO $ do
+      check <- run $ do
+        resourceVar1 <-  newIORef Initial
+        res <- C.produceAndConsume prod (D.transform (checkTransform resourceVar1) D.sum)
+        readIORef resourceVar1
+      M.assert $ check == Released
+    ,
+    testCase "Transform.produce resource checker #1" $ do
+      resourceVar <- newIORef Initial
+      let prod = checkProduce resourceVar (/= Released) 100
+      res1 <- C.produceAndConsume (E.transform (A.produce intToProduce) prod) D.sum
+      res2 <- C.produceAndConsume prod (D.transform (A.produce intToProduce) D.sum)
+      fin <- readIORef resourceVar
+      assertEqual "" Released fin
+      assertEqual "" res1 res2
+    ,
+    testCase "Transform.produce resource checker #2" $ do
+      resourceVar <- newIORef Initial
+      let prod = checkProduce resourceVar (/= Released) 100
+      res1 <- C.produceAndConsume (E.transform (A.take 5 >>> A.produce intToProduce) prod) D.sum
+      res2 <- C.produceAndConsume prod (D.transform (A.take 5 >>> A.produce intToProduce) D.sum)
+      fin <- readIORef resourceVar
+      assertEqual "" Released fin
+      assertEqual "" res1 res2
   ]
 
-transform =
-  testGroup "Transform" $
+resourceChecker :: TestTree
+resourceChecker =
+  testGroup "produce1 >>= produce2" $
   [
-    transformProduce
+    testCase "Check produce binding" $ do
+      resourceVar1 <- newIORef Initial
+      resourceVar2 <- newIORef Initial
+      let prod1 = checkProduce resourceVar1 (const True) 100
+          prod2 = \x -> checkProduce resourceVar2 (/= Released) x
+      res <- C.produceAndConsume (prod1 >>= prod2) D.sum
+      fin <- readIORef resourceVar1
+      assertEqual "" Released fin
     ,
-    transformChoice
+    testProperty "Bind for produce" $ \ (list :: [Int]) ->
+    let check = list >>= (enumFromTo 0)
+        prod1 = E.list list
+        prod2 = \x -> E.list $ enumFromTo 0 x
+    in monadicIO $ do
+      res <- run $ C.produceAndConsume (prod1 >>= prod2) D.list
+      M.assert (check == res)
     ,
-    transformArrowLaws
-  ]
-
-transformProduce =
-  testCase "Produce" $ do
-    let list = [1, 2, 3] :: [Int]
-    result <- C.produceAndTransformAndConsume
-      (E.list list)
-      (A.produce (E.list . \ n -> flip replicate n n))
-      (D.list)
-    assertEqual "" [1, 2, 2, 3, 3, 3] result
-
-transformChoice =
-  testGroup "Choice" $
-  [
-    testCase "1" $ do
-      let
-        list = [Left 1, Left 2, Right 'z', Left 2, Right 'a', Left 1, Right 'b', Left 0, Right 'x', Left 4, Left 3]
-        transform = left' id
-      result <- C.produceAndTransformAndConsume (E.list list) transform D.list
-      assertEqual "" [Left 1, Left 2, Right 'z', Left 2, Right 'a', Left 1, Right 'b', Left 0, Right 'x', Left 4, Left 3] result
+    testProperty "liftIO for Produce. Consume0" $ \ (_ :: Int) ->
+    monadicIO $ do
+      check <- run $ do
+        checkVar <- newIORef False
+        let prod = liftIO $ writeIORef checkVar True
+        C.produceAndConsume prod someThing
+        readIORef checkVar
+      M.assert $ check == False
     ,
-    testCase "2" $ do
-      let
-        list = [Left 1, Left 2, Right 'z', Right 'a', Right 'b', Left 0, Right 'x', Left 4, Left 3]
-        transform = right (A.consume D.list)
-      result <- C.produceAndTransformAndConsume (E.list list) transform D.list
-      assertEqual "" [Left 1, Left 2, Right "zab", Left 0, Right "x", Left 4, Left 3] result
-    ,
-    testCase "3" $ do
-      let
-        list = [Right 'z', Right 'a', Left 3, Right 'b', Left 0, Left 1, Right 'x', Left 4, Left 3]
-        transform = left (A.consume D.list)
-      result <- C.produceAndTransformAndConsume (E.list list) transform D.list
-      assertEqual "" [Right 'z', Right 'a', Left [3], Right 'b', Left [0, 1], Right 'x', Left [4, 3]] result
-  ]
-
-transformArrowLaws =
-  testGroup "Arrow laws"
-  [
-    testGroup "Strong"
-    [
-      testCase "1" $ do
-        let
-          input = [(1,'a'),(2,'b'),(3,'c'),(4,'d')]
-          transform = first transform1
-        result <- C.produceAndTransformAndConsume (E.list input) transform D.list
-        assertEqual "" [(6,'c'),(4,'d')] result
-      ,
-      testCase "Lack of elements" $ do
-        let
-          input = [(1,'a'),(2,'b')]
-          transform = first transform1
-        result <- C.produceAndTransformAndConsume (E.list input) transform D.list
-        assertEqual "" [(3,'b')] result
+    testProperty "liftIO for Produce. ConsumeN" $ \ (n :: Int) ->
+    monadicIO $ do
+      let prod = liftIO (return n)
+      len <- run (C.produceAndConsume prod D.count)
+      M.assert (len == 1)
     ]
-    ,
-    transformProperty "arr id = id"
-      (arr id :: A.Transform Int Int)
-      id
-    ,
-    transformProperty "arr (f >>> g) = arr f >>> arr g"
-      (arr (f >>> g))
-      (arr f >>> arr g)
-    ,
-    transformProperty "first (arr f) = arr (first f)"
-      (first (arr f) :: A.Transform (Int, Char) (Int, Char))
-      (arr (first f))
-    ,
-    transformProperty "first (f >>> g) = first f >>> first g"
-      (first (transform1 >>> transform2) :: A.Transform (Int, Char) (Int, Char))
-      (first (transform1) >>> first (transform2))
-    ,
-    transformProperty "first f >>> arr fst = arr fst >>> f"
-      (first transform1 >>> arr fst :: A.Transform (Int, Char) Int)
-      (arr fst >>> transform1)
-    ,
-    transformProperty "first f >>> arr (id *** g) = arr (id *** g) >>> first f"
-      (first transform1 >>> arr (id *** g))
-      (arr (id *** g) >>> first transform1)
-    ,
-    transformProperty "first (first f) >>> arr assoc = arr assoc >>> first f"
-      (first (first transform1) >>> arr assoc :: A.Transform ((Int, Char), Double) (Int, (Char, Double)))
-      (arr assoc >>> first transform1)
-    ,
-    transformProperty "left (arr f) = arr (left f)"
-      (left (arr f) :: A.Transform (Either Int Char) (Either Int Char))
-      (arr (left f))
-    ,
-    transformProperty "left (f >>> g) = left f >>> left g"
-      (left (transform1 >>> transform2) :: A.Transform (Either Int Char) (Either Int Char))
-      (left (transform1) >>> left (transform2))
-    ,
-    transformProperty "f >>> arr Left = arr Left >>> left f"
-      (transform1 >>> arr Left :: A.Transform Int (Either Int Char))
-      (arr Left >>> left transform1)
-    ,
-    transformProperty "left f >>> arr (id +++ g) = arr (id +++ g) >>> left f"
-      (left transform1 >>> arr (id +++ g))
-      (arr (id +++ g) >>> left transform1)
-    ,
-    transformProperty "left (left f) >>> arr assocsum = arr assocsum >>> left f"
-      (left (left transform1) >>> arr assocsum :: A.Transform (Either (Either Int Char) Double) (Either Int (Either Char Double)))
-      (arr assocsum >>> left transform1)
-    ,
-    transformProperty "left (left (arr f)) >>> arr assocsum = arr assocsum >>> left (arr f)"
-      (left (left (arr f)) >>> arr assocsum :: A.Transform (Either (Either Int Char) Double) (Either Int (Either Char Double)))
-      (arr assocsum >>> left (arr f))
-  ]
-  where
-    f = (+24) :: Int -> Int
-    g = (*3) :: Int -> Int
-    transform1 = A.consume (D.transform (A.take 3) D.sum) :: A.Transform Int Int
-    transform2 = A.consume (D.transform (A.take 4) D.sum) :: A.Transform Int Int
-    assoc ((a,b),c) = (a,(b,c))
-    assocsum (Left (Left x)) = Left x
-    assocsum (Left (Right y)) = Right (Left y)
-    assocsum (Right z) = Right (Right z)
 
-transformProperty :: 
-  (Arbitrary input, Show input, Eq output, Show output) => 
-  String -> A.Transform input output -> A.Transform input output -> TestTree
-transformProperty name leftTransform rightTransform =
-  testProperty name property
+intToProduce :: Int -> E.Produce Int
+intToProduce a = E.Produce . Ac.Acquire $ do
+  stVar <- newIORef 0
+  return $ flip (,) (return ()) $ Fe.Fetch $ do
+      n <- readIORef stVar
+      if n >= a + 1 then (return Nothing)
+      else do
+        writeIORef stVar $! n + 1
+        return (Just n)
+
+someThing :: D.Consume input Int
+someThing = D.Consume $ \ (Fe.Fetch _) -> return 0
+
+single :: Foldable f => f a -> Maybe a
+single = join . (foldr' f Nothing)
   where
-    property list =
-      transform leftTransform === transform rightTransform
-      where
-        transform transform =
-          unsafePerformIO (C.produceAndTransformAndConsume (E.list list) transform D.list)
+    f x Nothing = Just $ Just x
+    f _ _       = Just Nothing
+
+data Resource
+  = Initial
+  | Acquired
+  | Released
+  | AcquiredImproperly
+  | ReleasedImproperly
+  deriving (Show, Eq)
+
+checkTransform :: IORef Resource -> A.Transform Int Int
+checkTransform resourceVar = A.Transform $ \ fetchIO -> Ac.Acquire $ do
+  writeIORef resourceVar Acquired
+  return $ (,) (plusFetch fetchIO) $ do
+      res <- readIORef resourceVar
+      case res of
+        Acquired -> writeIORef resourceVar Released
+        _ -> writeIORef resourceVar ReleasedImproperly
+
+plusFetch :: Fe.Fetch Int -> Fe.Fetch Int
+plusFetch (Fe.Fetch fetchIO) = Fe.Fetch $ do
+  fetch <- fetchIO
+  return $ fmap succ fetch
+
+checkProduce :: IORef Resource -> (Resource -> Bool) -> Int -> E.Produce Int
+checkProduce resourceVar f k = E.Produce . Ac.Acquire $ do
+  res <- readIORef resourceVar
+  if f res && res /= Initial
+    then do
+      return $ (,) (Fe.Fetch $ return Nothing) $ writeIORef resourceVar AcquiredImproperly
+    else do
+      writeIORef resourceVar Acquired
+      stVar <- newIORef 0
+      let fetch = do
+            n <- readIORef stVar
+            if n >= k then return (Nothing)
+            else do
+              writeIORef stVar $! n + 1
+              return (Just n)
+      return $ (,) (Fe.Fetch fetch) $ do
+          res <- readIORef resourceVar
+          case res of
+            Acquired -> writeIORef resourceVar Released
+            _ -> writeIORef resourceVar ReleasedImproperly
+
+asyncCheckResource :: TVar Resource -> E.Produce Int
+asyncCheckResource resourceVar = E.Produce . Ac.Acquire $ do
+  atomically $ writeTVar resourceVar Acquired
+  stVar <- newIORef 0
+  let fetch = do
+        n <- readIORef stVar
+        writeIORef stVar $! n + 1
+        return (Just n)
+  return (Fe.Fetch fetch, atomically $ writeTVar resourceVar Released)
+
+syncCheckResource :: IORef Resource -> E.Produce Int
+syncCheckResource resourceVar = E.Produce . Ac.Acquire $ do
+  writeIORef resourceVar Acquired
+  stVar <- newIORef 0
+  let fetch = do
+        n <- readIORef stVar
+        if n >= 1000 then return (Nothing)
+        else do
+          writeIORef stVar $! n + 1
+          return (Just n)
+  return $ (,) (Fe.Fetch fetch) $ do
+      res <- readIORef resourceVar
+      case res of
+        Acquired -> writeIORef resourceVar Released
+        _ -> writeIORef resourceVar ReleasedImproperly
