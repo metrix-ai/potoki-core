@@ -119,6 +119,11 @@ import Data.Hashable as Exports (Hashable)
 -------------------------
 import Control.Concurrent.STM as Exports
 
+-- deferred-folds
+-------------------------
+import DeferredFolds.Unfold as Exports (Unfold(..))
+import DeferredFolds.UnfoldM as Exports (UnfoldM(..))
+
 --------------------------------------------------------------------------------
 
 import qualified Data.Text as A
