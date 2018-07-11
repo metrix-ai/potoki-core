@@ -124,6 +124,10 @@ import Control.Concurrent.STM as Exports
 import DeferredFolds.Unfold as Exports (Unfold(..))
 import DeferredFolds.UnfoldM as Exports (UnfoldM(..))
 
+-- foldl
+-------------------------
+import Control.Foldl as Exports (Fold(..), FoldM(..))
+
 --------------------------------------------------------------------------------
 
 import qualified Data.Text as A

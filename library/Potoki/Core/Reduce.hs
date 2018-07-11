@@ -4,6 +4,7 @@ module Potoki.Core.Reduce
   zipping,
   sequentially,
   transduce,
+  foldM,
 )
 where
 
@@ -95,3 +96,17 @@ zipping (ReduceZipping reduce) = reduce
 
 sequentially :: ReduceSequentially a b -> Reduce a (Maybe b)
 sequentially (ReduceSequentially reduce) = reduce
+
+foldM :: FoldM IO a b -> Reduce a b
+foldM (FoldM step init extract) =
+  Reduce $ do
+    stateRef <- newIORef =<< init
+    let consume input = do
+          state <- readIORef stateRef
+          newState <- step state input
+          writeIORef stateRef newState
+          return True
+        finish = do
+          state <- readIORef stateRef
+          extract state
+        in return (Consume consume, finish)
