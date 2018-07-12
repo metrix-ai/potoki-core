@@ -119,6 +119,7 @@ benchmark benchmark
     Tests.Strong
     Tests.Transform
     Tests.Consume
+    Tests.Produce
   default-extensions:
     Arrows, BangPatterns, ConstraintKinds, DataKinds, InstanceSigs,
     DefaultSignatures, DeriveDataTypeable, DeriveFoldable,
