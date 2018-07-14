@@ -224,4 +224,4 @@ enumInRange :: (Enum a, Ord a) => a -> a -> Produce a
 enumInRange from to =
   Produce $ M.Acquire $ do
     ref <- newIORef from
-    return (A.indicesUntil ref to, return ())
+    return (A.enumUntil ref to, return ())
