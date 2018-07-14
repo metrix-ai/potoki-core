@@ -19,6 +19,7 @@ import qualified Data.ByteString.Char8 as I
 import qualified Data.Vector as G
 import qualified System.Random as H
 import qualified Acquire.Acquire as Ac
+import qualified DeferredFolds.Unfoldr as Unfoldr
 import Potoki
 import Transform
 
@@ -26,6 +27,10 @@ main =
   defaultMain $
   testGroup "All tests" $
   [
+    testProperty "unfoldr" $ \ (list :: [Int]) ->
+      list ===
+      unsafePerformIO (C.produceAndConsume (E.unfoldr (Unfoldr.foldable list)) (D.list))
+    ,
     testGroup "lines extraction props" $ let
       chunksGen = listOf $ do
         byteList <- listOf (frequency [(1, pure 10), (20, choose (97, 122))])

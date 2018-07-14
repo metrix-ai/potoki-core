@@ -119,6 +119,10 @@ import Data.Primitive as Exports
 -------------------------
 import Control.DeepSeq as Exports
 
+-- deferred-folds
+-------------------------
+import DeferredFolds.Unfoldr as Exports (Unfoldr(..))
+
 --------------------------------------------------------------------------------
 
 import qualified Data.Text as A

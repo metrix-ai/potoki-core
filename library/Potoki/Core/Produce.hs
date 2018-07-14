@@ -16,10 +16,11 @@ module Potoki.Core.Produce
   lazyByteString,
   enumInRange,
   mergeOrdering,
+  unfoldr,
 )
 where
 
-import Potoki.Core.Prelude
+import Potoki.Core.Prelude hiding (unfoldr)
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Data.HashMap.Strict as B
@@ -303,3 +304,13 @@ mergeOrdering compare (Produce produceLeft) (Produce produceRight) = Produce $ d
                 writeIORef rightCache Nothing
                 return (Just right)
               Nothing -> fetchRight
+
+unfoldr :: Unfoldr a -> Produce a
+unfoldr (Unfoldr unfoldr) = Produce $ liftIO $ do
+  fetchRef <- newIORef (return Nothing)
+  writeIORef fetchRef $ let
+    step !a fetchNext = do
+      writeIORef fetchRef fetchNext
+      return (Just a)
+    in unfoldr step (return Nothing)
+  return $ Fetch $ join $ readIORef fetchRef
