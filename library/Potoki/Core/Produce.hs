@@ -13,6 +13,7 @@ module Potoki.Core.Produce
   finiteMVar,
   infiniteMVar,
   lazyByteString,
+  enumInRange,
 )
 where
 
@@ -217,3 +218,10 @@ lazyByteString lbs =
   Produce $ M.Acquire $ do
     ref <- newIORef lbs
     return (A.lazyByteStringRef ref, return ())
+
+{-# INLINE enumInRange #-}
+enumInRange :: (Enum a, Ord a) => a -> a -> Produce a
+enumInRange from to =
+  Produce $ M.Acquire $ do
+    ref <- newIORef from
+    return (A.indicesUntil ref to, return ())

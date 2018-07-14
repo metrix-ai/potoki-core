@@ -23,6 +23,7 @@ module Potoki.Core.Fetch
   vector,
   handlingElements,
   lazyByteStringRef,
+  enumUntil,
 )
 where
 
@@ -293,3 +294,14 @@ lazyByteStringRef ref =
         writeIORef ref remainders
         return (Just chunk)
       B.Empty -> return Nothing
+
+{-# INLINE enumUntil #-}
+enumUntil :: (Enum a, Ord a) => IORef a -> a -> Fetch a
+enumUntil ref maxIndex =
+  Fetch $ do
+    index <- readIORef ref
+    if index <= maxIndex
+      then do
+        writeIORef ref (succ index)
+        return (Just index)
+      else return Nothing
