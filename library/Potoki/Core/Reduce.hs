@@ -8,7 +8,7 @@ module Potoki.Core.Reduce
 )
 where
 
-import Potoki.Core.Prelude
+import Potoki.Core.Prelude hiding (foldM)
 import Potoki.Core.Types
 import qualified Potoki.Core.Consume as A
 
