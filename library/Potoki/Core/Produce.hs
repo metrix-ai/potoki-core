@@ -85,6 +85,13 @@ instance MonadIO Produce where
                   getElement
     return fetch
 
+instance Semigroup (Produce a) where
+  (<>) = (<|>)
+
+instance Monoid (Produce a) where
+  mempty = empty
+  mappend = (<>)
+
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
 list inputList =
