@@ -27,6 +27,7 @@ module Potoki.Core.Transform
   -- * Parsing
   A.parseBytes,
   A.parseText,
+  A.parseLineBytesConcurrently,
   -- * Concurrency
   N.bufferize,
   N.concurrently,

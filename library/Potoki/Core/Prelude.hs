@@ -4,6 +4,7 @@ module Potoki.Core.Prelude
   ioChunkSize,
   textString,
   unsnoc,
+  mapLeft,
 )
 where
 
@@ -131,3 +132,9 @@ unsnoc listVal =
           _ -> case process tailVal of
             (initVal, lastMaybe) -> (headVal : initVal, lastMaybe)
         _ -> ([], Nothing)
+
+{-# INLINE mapLeft #-}
+mapLeft :: (oldLeft -> newLeft) -> Either oldLeft right -> Either newLeft right
+mapLeft f = \ case
+  Left a -> Left (f a)
+  Right b -> Right b
