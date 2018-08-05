@@ -3,6 +3,7 @@ where
 
 import Potoki.Core.Prelude hiding (take, takeWhile, filter, drop)
 import Potoki.Core.Types
+import Potoki.Core.Transform.Basic
 import Potoki.Core.Transform.Concurrency
 import Potoki.Core.Transform.ByteString
 import qualified Potoki.Core.Fetch as A
@@ -10,6 +11,7 @@ import qualified Data.Attoparsec.ByteString as K
 import qualified Data.Attoparsec.Text as L
 import qualified Data.Attoparsec.Types as M
 import qualified Acquire.Acquire as N
+import qualified Data.ByteString as ByteString
 
 
 {-# INLINE mapWithParseResult #-}
@@ -92,4 +94,14 @@ which parses the lines concurrently.
 parseLineBytesConcurrently :: Int -> K.Parser a -> Transform ByteString (Either Text a)
 parseLineBytesConcurrently concurrency parser =
   extractLines >>> bufferize concurrency >>>
+  concurrently concurrency (arr (mapLeft fromString . K.parseOnly parser))
+
+{-|
+Lift an Attoparsec ByteString parser to a transform,
+which parses the lines concurrently.
+-}
+{-# INLINE parseNonEmptyLineBytesConcurrently #-}
+parseNonEmptyLineBytesConcurrently :: Int -> K.Parser a -> Transform ByteString (Either Text a)
+parseNonEmptyLineBytesConcurrently concurrency parser =
+  extractLinesWithoutTrail >>> filter (not . ByteString.null) >>> bufferize concurrency >>>
   concurrently concurrency (arr (mapLeft fromString . K.parseOnly parser))
