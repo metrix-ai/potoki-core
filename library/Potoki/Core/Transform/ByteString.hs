@@ -56,3 +56,29 @@ extractLines =
                         writeIORef stateRef (Just newPoking)
                         return (Just [])
               _ -> return (Just []))
+
+extractLinesWithoutTrail :: Transform ByteString ByteString
+extractLinesWithoutTrail =
+  lineList >>> filter (not . null) >>> list
+  where
+    lineList =
+      Transform $ \ (A.Fetch fetchIO) -> M.Acquire $ do
+        pokingRef <- newIORef mempty
+        return $ (, return ()) $ A.Fetch $ fetchIO >>= \ case
+          Just chunk -> case B.split 10 chunk of
+            head : tail -> do
+              poking <- readIORef pokingRef
+              let newPoking = poking <> C.bytes head
+              case unsnoc tail of
+                Just (init, last) -> do
+                  writeIORef pokingRef (C.bytes last)
+                  return (Just (D.poking newPoking : init))
+                Nothing -> do
+                  writeIORef pokingRef newPoking
+                  return (Just [])
+            _ -> return (Just [])
+          Nothing -> do
+            poking <- readIORef pokingRef
+            if C.null poking
+              then return Nothing
+              else return (Just (D.poking poking : []))

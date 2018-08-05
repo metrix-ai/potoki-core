@@ -25,6 +25,12 @@ main =
   defaultMain $
   testGroup "All tests" $
   [
+    testCase "extractLines" $ do
+      assertEqual "" ["ab", "", "cd"] =<<
+        C.produceAndConsume (E.transform A.extractLinesWithoutTrail (E.list ["a", "b\n", "\nc", "d\n"])) D.list
+      assertEqual "" ["ab", "", "cd", ""] =<<
+        C.produceAndConsume (E.transform A.extractLines (E.list ["a", "b\n", "\nc", "d\n"])) D.list
+    ,
     testProperty "list to list" $ \ (list :: [Int]) ->
     list === unsafePerformIO (C.produceAndConsume (E.list list) D.list)
     ,
