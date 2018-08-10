@@ -48,6 +48,7 @@ library
     Potoki.Core.ProduceSequentially
     Potoki.Core.Consume
     Potoki.Core.Transduce
+    Potoki.Core.TransduceConcurrently
     Potoki.Core.Reduce
     Potoki.Core.ReduceSequentially
     Potoki.Core.ReduceZipping

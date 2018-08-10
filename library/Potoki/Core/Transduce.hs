@@ -3,6 +3,7 @@ module Potoki.Core.Transduce
   Transduce(..),
   produce,
   reduce,
+  concurrently,
 )
 where
 
@@ -109,3 +110,6 @@ produce aToProduceB =
   Transduce $ \ consumeB ->
   let consumeA = Consume $ \ a -> case aToProduceB a of Produce produceIO -> produceIO consumeB
       in return (consumeA, return ())
+
+concurrently :: Int -> TransduceConcurrently a b -> Transduce a b
+concurrently = undefined

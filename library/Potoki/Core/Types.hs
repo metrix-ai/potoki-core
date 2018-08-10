@@ -28,6 +28,14 @@ newtype Transduce input output =
   Transduce (Consume output -> IO (Consume input, IO ()))
 
 {-|
+Same as 'Transduce',
+only comes with guarantees that it's safe
+to use it concurrently.
+-}
+newtype TransduceConcurrently input output =
+  TransduceConcurrently (Transduce input output)
+
+{-|
 A producer which composes concurrently.
 -}
 newtype ProduceConcurrently element =
