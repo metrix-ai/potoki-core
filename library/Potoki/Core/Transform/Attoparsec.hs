@@ -103,5 +103,5 @@ which parses the lines concurrently.
 {-# INLINE parseNonEmptyLineBytesConcurrently #-}
 parseNonEmptyLineBytesConcurrently :: Int -> K.Parser a -> Transform ByteString (Either Text a)
 parseNonEmptyLineBytesConcurrently concurrency parser =
-  extractLinesWithoutTrail >>> filter (not . ByteString.null) >>> bufferize concurrency >>>
+  extractLinesWithoutTrail >>> filter (not . ByteString.null) >>> bufferize (concurrency * 2) >>>
   concurrentlyUnsafe concurrency (arr (mapLeft fromString . K.parseOnly parser))

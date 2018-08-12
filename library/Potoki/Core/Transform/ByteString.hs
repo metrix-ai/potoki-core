@@ -47,10 +47,11 @@ extractLines =
                   newPoking =
                     fold state <> C.bytes firstInput
                   in case unsnoc tailVal of
-                    Just (initVal, lastVal) ->
+                    Just (!initVal, !lastVal) ->
                       do
-                        writeIORef stateRef (Just (C.bytes lastVal))
-                        return (Just (D.poking newPoking : initVal))
+                        writeIORef stateRef $! Just $! C.bytes lastVal
+                        let !bytes = D.poking newPoking
+                        return (Just (bytes : initVal))
                     Nothing ->
                       do
                         writeIORef stateRef (Just newPoking)
@@ -70,9 +71,11 @@ extractLinesWithoutTrail =
               poking <- readIORef pokingRef
               let newPoking = poking <> C.bytes head
               case unsnoc tail of
-                Just (init, last) -> do
+                Just (!init, last) -> do
                   writeIORef pokingRef (C.bytes last)
-                  return (Just (D.poking newPoking : init))
+                  let
+                    !bytes = D.poking newPoking
+                    in return (Just (bytes : init))
                 Nothing -> do
                   writeIORef pokingRef newPoking
                   return (Just [])
@@ -81,4 +84,6 @@ extractLinesWithoutTrail =
             poking <- readIORef pokingRef
             if C.null poking
               then return Nothing
-              else return (Just (D.poking poking : []))
+              else let
+                !bytes = D.poking poking
+                in return (Just (bytes : []))
