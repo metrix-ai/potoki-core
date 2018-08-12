@@ -89,8 +89,24 @@ A transform, which fetches the inputs asynchronously on the specified number of 
 async :: Int -> Transform input input
 async workersAmount = 
   Transform $ \ (A.Fetch fetchIO) -> M.Acquire $ do
-    chan <- newEmptyMVar 
-    replicateM_ workersAmount $ forkIO $ fix $ \ _ -> do
+    
+    chan <- atomically newEmptyTMVar
+    workersCounter <- atomically (newTVar workersAmount)
+
+    replicateM_ workersAmount $ forkIO $ fix $ \ loop -> do
       fetchResult <- fetchIO
-      putMVar chan fetchResult
-    return (A.finiteMVar chan, return ())
+      case fetchResult of
+        Just input -> atomically (putTMVar chan input) *> loop
+        Nothing -> atomically (modifyTVar' workersCounter pred)
+
+    let
+      newFetchIO = let
+        readChan = Just <$> readTMVar chan
+        checkCounter = do
+          workersActive <- readTVar workersCounter
+          if workersActive > 0
+            then empty
+            else return Nothing
+        in atomically (readChan <|> checkCounter)
+    
+    return (A.Fetch newFetchIO, return ())
