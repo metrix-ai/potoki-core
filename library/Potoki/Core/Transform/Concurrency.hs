@@ -1,9 +1,4 @@
 module Potoki.Core.Transform.Concurrency
-(
-  bufferize,
-  concurrently,
-  async,
-)
 where
 
 import Potoki.Core.Prelude hiding (take, takeWhile, filter)

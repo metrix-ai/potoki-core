@@ -94,7 +94,7 @@ which parses the lines concurrently.
 parseLineBytesConcurrently :: Int -> K.Parser a -> Transform ByteString (Either Text a)
 parseLineBytesConcurrently concurrency parser =
   extractLines >>> bufferize concurrency >>>
-  concurrently concurrency (arr (mapLeft fromString . K.parseOnly parser))
+  concurrentlyUnsafe concurrency (arr (mapLeft fromString . K.parseOnly parser))
 
 {-|
 Lift an Attoparsec ByteString parser to a transform,
@@ -104,4 +104,4 @@ which parses the lines concurrently.
 parseNonEmptyLineBytesConcurrently :: Int -> K.Parser a -> Transform ByteString (Either Text a)
 parseNonEmptyLineBytesConcurrently concurrency parser =
   extractLinesWithoutTrail >>> filter (not . ByteString.null) >>> bufferize concurrency >>>
-  concurrently concurrency (arr (mapLeft fromString . K.parseOnly parser))
+  concurrentlyUnsafe concurrency (arr (mapLeft fromString . K.parseOnly parser))
