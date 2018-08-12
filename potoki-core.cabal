@@ -41,6 +41,7 @@ library
     Potoki.Core.Transform.Concurrency
     Potoki.Core.Transform.FileIO
     Potoki.Core.Transform.State
+    Potoki.Core.Transform.Scanner
     Potoki.Core.Transform.Instances
     Potoki.Core.IO.Fetch
   build-depends:
@@ -54,6 +55,7 @@ library
     primitive >=0.6.4 && <0.7,
     profunctors >=5.2 && <6,
     ptr >=0.16.2 && <0.17,
+    scanner >=0.2 && <0.3,
     stm >=2.4 && <3,
     text >=1 && <2,
     transformers >=0.5 && <0.6,
