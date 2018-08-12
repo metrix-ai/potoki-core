@@ -52,7 +52,7 @@ import Debug.Trace as Exports
 import Foreign.ForeignPtr as Exports
 import Foreign.Ptr as Exports
 import Foreign.StablePtr as Exports
-import Foreign.Storable as Exports
+import Foreign.Storable as Exports hiding (sizeOf, alignment)
 import GHC.Conc as Exports hiding (withMVar, threadWaitWriteSTM, threadWaitWrite, threadWaitReadSTM, threadWaitRead)
 import GHC.Exts as Exports (lazy, inline, sortWith, groupWith)
 import GHC.Generics as Exports (Generic)
@@ -106,6 +106,10 @@ import Data.Vector as Exports (Vector)
 -- hashable
 -------------------------
 import Data.Hashable as Exports (Hashable)
+
+-- primitive
+-------------------------
+import Data.Primitive as Exports
 
 --------------------------------------------------------------------------------
 
