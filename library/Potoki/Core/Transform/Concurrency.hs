@@ -73,9 +73,9 @@ concurrently workersAmount transform =
 concurrentlyUnsafe :: Int -> Transform input output -> Transform input output
 concurrentlyUnsafe workersAmount (Transform syncTransformIO) = 
   Transform $ \ fetchIO -> liftIO $ do
-    chan <- atomically newEmptyTMVar
-    workersCounter <- atomically (newTVar workersAmount)
-    fetchingAvailableVar <- atomically (newTVar True)
+    chan <- newTBQueueIO (workersAmount * 2)
+    workersCounter <- newTVarIO workersAmount
+    fetchingAvailableVar <- newTVarIO True
 
     replicateM_ workersAmount $ forkIO $ do
       (A.Fetch fetchIO, finalize) <- case syncTransformIO fetchIO of M.Acquire io -> io
@@ -83,14 +83,13 @@ concurrentlyUnsafe workersAmount (Transform syncTransformIO) =
         fetchResult <- fetchIO
         case fetchResult of
           Just !result -> do
-            atomically (putTMVar chan result)
+            atomically (writeTBQueue chan result)
             loop
-          Nothing -> do
-            atomically $ modifyTVar' workersCounter pred
+          Nothing -> atomically (modifyTVar' workersCounter pred)
       finalize
 
     return $ A.Fetch $ let
-      readChan = Just <$> takeTMVar chan
+      readChan = Just <$> readTBQueue chan
       terminate = do
         workersActive <- readTVar workersCounter
         if workersActive > 0
