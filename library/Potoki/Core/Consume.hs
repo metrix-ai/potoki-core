@@ -168,7 +168,7 @@ count =
         Just _ -> build fetchIO (succ acc)
 
 {-# INLINABLE concat #-}
-concat :: Monoid monoid => Consume monoid monoid
+concat :: (Semigroup monoid, Monoid monoid) => Consume monoid monoid
 concat =
   Consume $ \ (A.Fetch fetchIO) -> build fetchIO mempty
   where
