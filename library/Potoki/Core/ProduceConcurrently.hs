@@ -7,7 +7,7 @@ where
 
 import Potoki.Core.Prelude
 import Potoki.Core.Types
-import qualified Potoki.Core.Consume as A
+import qualified Potoki.Core.EatOne as A
 import qualified Potoki.Core.Produce as E
 
 

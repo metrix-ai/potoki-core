@@ -10,7 +10,7 @@ where
 
 import Potoki.Core.Prelude hiding (foldM)
 import Potoki.Core.Types
-import qualified Potoki.Core.Consume as A
+import qualified Potoki.Core.EatOne as A
 
 
 instance Functor (Reduce input) where
@@ -26,12 +26,12 @@ instance Semigroupoid Reduce where
   o (Reduce reduceBToC) (Reduce reduceAToB) =
     Reduce $ do
       stateRef <- newIORef Nothing
-      (Consume consumeB, extractC) <- reduceBToC
+      (EatOne consumeB, extractC) <- reduceBToC
       let consume a = do
             state <- readIORef stateRef
             case state of
               Nothing -> do
-                (Consume consumeA, extractB) <- reduceAToB
+                (EatOne consumeA, extractB) <- reduceAToB
                 readyForMore <- consumeA a
                 if readyForMore
                   then do
@@ -57,7 +57,7 @@ instance Semigroupoid Reduce where
                 b <- extractB
                 consumeB b
                 extractC
-      return (Consume consume, extract)
+      return (EatOne consume, extract)
 
 instance Profunctor Reduce where
   dimap :: (a -> b) -> (c -> d) -> Reduce b c -> Reduce a d
@@ -71,7 +71,7 @@ instance Choice Reduce where
   right' (Reduce reduceAToB) =
     Reduce $ do
       stateRef <- newIORef Nothing
-      (Consume consumeA, extractB) <- reduceAToB
+      (EatOne consumeA, extractB) <- reduceAToB
       let consumeCOrA = \case
             Right a -> consumeA a
             Left c -> do
@@ -82,14 +82,14 @@ instance Choice Reduce where
             case state of
               Nothing -> fmap Right extractB
               Just c -> return (Left c)
-          in return (Consume consumeCOrA, extractCOrB)
+          in return (EatOne consumeCOrA, extractCOrB)
 
 transduce :: Transduce a b -> Reduce b c -> Reduce a c
 transduce (Transduce transduceIO) (Reduce reduceIO) =
   Reduce $ do
     (consume, finishReduce) <- reduceIO
-    (transducedConsume, finishTransduce) <- transduceIO consume
-    return (transducedConsume, finishTransduce *> finishReduce)
+    (transducedEatOne, finishTransduce) <- transduceIO consume
+    return (transducedEatOne, finishTransduce *> finishReduce)
 
 zipping :: ReduceZipping a b -> Reduce a b
 zipping (ReduceZipping reduce) = reduce
@@ -109,4 +109,4 @@ foldM (FoldM step init extract) =
         finish = do
           state <- readIORef stateRef
           extract state
-        in return (Consume consume, finish)
+        in return (EatOne consume, finish)

@@ -7,16 +7,16 @@ import Potoki.Core.Prelude
 {-|
 A specification of how to consume one input.
 -}
-newtype Consume input =
-  Consume (input -> IO Bool)
+newtype EatOne input =
+  EatOne (input -> IO Bool)
 
 newtype Produce element =
   {-| An action, which executes the consuming action, and indicates,
   whether the consumer is still ready to process more input. -}
-  Produce (Consume element -> IO Bool)
+  Produce (EatOne element -> IO Bool)
 
 newtype Reduce element reduction =
-  Reduce (IO (Consume element, IO reduction))
+  Reduce (IO (EatOne element, IO reduction))
 
 newtype ReduceSequentially element reduction =
   ReduceSequentially (Reduce element (Maybe reduction))
@@ -25,7 +25,7 @@ newtype ReduceZipping element reduction =
   ReduceZipping (Reduce element reduction)
 
 newtype Transduce input output =
-  Transduce (Consume output -> IO (Consume input, IO ()))
+  Transduce (EatOne output -> IO (EatOne input, IO ()))
 
 {-|
 Same as 'Transduce',

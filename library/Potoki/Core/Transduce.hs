@@ -9,45 +9,45 @@ where
 
 import Potoki.Core.Prelude
 import Potoki.Core.Types
-import qualified Potoki.Core.Consume as A
+import qualified Potoki.Core.EatOne as A
 
 
 instance Profunctor Transduce where
   dimap inputMapping outputMapping (Transduce transduceIO) =
-    Transduce $ \ oldConsume -> do
-      (newConsume, finalize) <- transduceIO (contramap outputMapping oldConsume)
-      return (contramap inputMapping newConsume, finalize)
+    Transduce $ \ oldEatOne -> do
+      (newEatOne, finalize) <- transduceIO (contramap outputMapping oldEatOne)
+      return (contramap inputMapping newEatOne, finalize)
 
 instance Choice Transduce where
   right' (Transduce transduceRight) =
-    Transduce $ \ (Consume consumeEitherOutput) -> do
+    Transduce $ \ (EatOne consumeEitherOutput) -> do
       let
         consumeRightOutput rightOutput = do
           consumeEitherOutput (Right rightOutput)
         in do
-          (Consume consumeRightInput, releaseRightTransduce) <- transduceRight (Consume consumeRightOutput)
+          (EatOne consumeRightInput, releaseRightTransduce) <- transduceRight (EatOne consumeRightOutput)
           let
             consumeEitherInput eitherInput = do
               case eitherInput of
                 Left leftInput -> consumeEitherOutput (Left leftInput)
                 Right rightInput -> consumeRightInput rightInput
-            in return (Consume consumeEitherInput, releaseRightTransduce)
+            in return (EatOne consumeEitherInput, releaseRightTransduce)
 
 instance Strong Transduce where
   second' (Transduce transduceSecond) =
-    Transduce $ \ (Consume consumeBothOutput) -> do
+    Transduce $ \ (EatOne consumeBothOutput) -> do
       firstInputRef <- newIORef undefined
       let
         consumeSecondOutput secondOutput = do
           firstInput <- readIORef firstInputRef
           consumeBothOutput (firstInput, secondOutput)
         in do
-          (Consume consumeSecondInput, releaseSecondTransduce) <- transduceSecond (Consume consumeSecondOutput)
+          (EatOne consumeSecondInput, releaseSecondTransduce) <- transduceSecond (EatOne consumeSecondOutput)
           let
             consumeBothInput (firstInput, secondInput) = do
               writeIORef firstInputRef firstInput
               consumeSecondInput secondInput
-            in return (Consume consumeBothInput, releaseSecondTransduce)
+            in return (EatOne consumeBothInput, releaseSecondTransduce)
 
 instance Semigroupoid Transduce where
   o = (.)
@@ -71,25 +71,25 @@ instance ArrowChoice Transduce where
 
 reduce :: Reduce a b -> Transduce a b
 reduce (Reduce initReduceActions) =
-  Transduce $ \ (Consume consumeB) -> do
+  Transduce $ \ (EatOne consumeB) -> do
     activeReduceActionsIfAnyRef <- newIORef Nothing
-    let transduceConsumeA = Consume $ \ a -> do
+    let transduceEatOneA = EatOne $ \ a -> do
           activeReduceActionsIfAny <- readIORef activeReduceActionsIfAnyRef
           case activeReduceActionsIfAny of
-            Just (reduceConsumeA, reduceFinishB) -> do
-              readyToConsumeMore <- reduceConsumeA a
-              if readyToConsumeMore
+            Just (reduceEatOneA, reduceFinishB) -> do
+              readyToEatOneMore <- reduceEatOneA a
+              if readyToEatOneMore
                 then return True
                 else do
                   writeIORef activeReduceActionsIfAnyRef Nothing
                   b <- reduceFinishB
                   consumeB b
             Nothing -> do
-              (Consume reduceConsumeA, reduceFinishB) <- initReduceActions
-              readyToConsumeMore <- reduceConsumeA a
-              if readyToConsumeMore
+              (EatOne reduceEatOneA, reduceFinishB) <- initReduceActions
+              readyToEatOneMore <- reduceEatOneA a
+              if readyToEatOneMore
                 then do
-                  writeIORef activeReduceActionsIfAnyRef (Just (reduceConsumeA, reduceFinishB))
+                  writeIORef activeReduceActionsIfAnyRef (Just (reduceEatOneA, reduceFinishB))
                   return True
                 else do
                   b <- reduceFinishB
@@ -103,12 +103,12 @@ reduce (Reduce initReduceActions) =
               consumeB b
               return ()
             Nothing -> return ()
-        in return (transduceConsumeA, transduceFinish)
+        in return (transduceEatOneA, transduceFinish)
 
 produce :: (a -> Produce b) -> Transduce a b
 produce aToProduceB =
   Transduce $ \ consumeB ->
-  let consumeA = Consume $ \ a -> case aToProduceB a of Produce produceIO -> produceIO consumeB
+  let consumeA = EatOne $ \ a -> case aToProduceB a of Produce produceIO -> produceIO consumeB
       in return (consumeA, return ())
 
 concurrently :: Int -> TransduceConcurrently a b -> Transduce a b

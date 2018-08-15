@@ -1,6 +1,6 @@
-module Potoki.Core.Consume
+module Potoki.Core.EatOne
 (
-  Consume(..),
+  EatOne(..),
   putToVarWhileActive,
   apWhileActive,
 )
@@ -9,33 +9,33 @@ where
 import Potoki.Core.Prelude hiding (sum, head, fold, concat, last)
 import Potoki.Core.Types
 
-instance Contravariant Consume where
-  contramap fn (Consume io) = Consume (io . fn)
+instance Contravariant EatOne where
+  contramap fn (EatOne io) = EatOne (io . fn)
 
-instance Divisible Consume where
-  conquer = Consume (\ _ -> return True)
-  divide fn (Consume io1) (Consume io2) =
-    Consume $ \ input -> case fn input of
+instance Divisible EatOne where
+  conquer = EatOne (\ _ -> return True)
+  divide fn (EatOne io1) (EatOne io2) =
+    EatOne $ \ input -> case fn input of
       (input1, input2) -> do
         continue1 <- io1 input1
         continue2 <- io2 input2
         let continue = continue1 && continue2
         return continue
 
-instance Semigroup (Consume a) where
-  (<>) (Consume io1) (Consume io2) =
-    Consume $ \ input -> do
+instance Semigroup (EatOne a) where
+  (<>) (EatOne io1) (EatOne io2) =
+    EatOne $ \ input -> do
       continue1 <- io1 input
       continue2 <- io2 input
       return (continue1 && continue2)
 
-instance Monoid (Consume a) where
+instance Monoid (EatOne a) where
   mempty = conquer
   mappend = (<>)
 
-putToVarWhileActive :: STM Bool -> TMVar element -> Consume element
+putToVarWhileActive :: STM Bool -> TMVar element -> EatOne element
 putToVarWhileActive checkIfActive elementVar =
-  Consume $ \ element -> atomically $
+  EatOne $ \ element -> atomically $
   mplus
     (putTMVar elementVar element $> True)
     (do
@@ -44,9 +44,9 @@ putToVarWhileActive checkIfActive elementVar =
         then retry
         else return False)
 
-apWhileActive :: STM Bool -> STM () -> TMVar (a -> b) -> Consume b -> Consume a
-apWhileActive checkIfActive signalEnd aToBVar (Consume consumeB) =
-  Consume $ \ a -> join $ atomically $
+apWhileActive :: STM Bool -> STM () -> TMVar (a -> b) -> EatOne b -> EatOne a
+apWhileActive checkIfActive signalEnd aToBVar (EatOne consumeB) =
+  EatOne $ \ a -> join $ atomically $
   mplus
     (do
       aToB <- takeTMVar aToBVar
