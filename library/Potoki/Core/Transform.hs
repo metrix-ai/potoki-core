@@ -33,6 +33,7 @@ module Potoki.Core.Transform
   -- * Concurrency
   N.bufferize,
   N.concurrently,
+  N.unsafeConcurrently,
   N.async,
   -- * File IO
   deleteFile,

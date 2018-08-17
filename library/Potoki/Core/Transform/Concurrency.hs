@@ -67,11 +67,11 @@ concurrently workersAmount transform =
     then transform
     else
       sync >>>
-      concurrentlyUnsafe workersAmount transform
+      unsafeConcurrently workersAmount transform
 
-{-# INLINE concurrentlyUnsafe #-}
-concurrentlyUnsafe :: Int -> Transform input output -> Transform input output
-concurrentlyUnsafe workersAmount (Transform syncTransformIO) = 
+{-# INLINE unsafeConcurrently #-}
+unsafeConcurrently :: Int -> Transform input output -> Transform input output
+unsafeConcurrently workersAmount (Transform syncTransformIO) = 
   Transform $ \ fetchIO -> liftIO $ do
     chan <- newTBQueueIO (workersAmount * 2)
     workersCounter <- newTVarIO workersAmount
