@@ -23,12 +23,13 @@ produceAndTransformAndConsume (Produce produceAcquire) (Transform transformAcqui
 
 produce :: Produce input -> forall x. IO x -> (input -> IO x) -> IO x
 produce (Produce produceAcquire) stop emit =
-  C.acquire produceAcquire $ \ (Fetch fetchIO) ->
-    fix $ \ doLoop -> do
+  C.acquire produceAcquire $ \ (Fetch fetchIO) -> let
+    loop = do
       fetch <- fetchIO
       case fetch of
         Nothing      -> stop
-        Just element -> emit element >> doLoop
+        Just element -> emit element >> loop
+    in loop
 
 consume :: IO (Maybe input) -> Consume input output -> IO output
 consume fetchIO (Consume consumeIO) =

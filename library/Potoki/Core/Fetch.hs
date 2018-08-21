@@ -214,36 +214,38 @@ handleText handleVal =
 {-# INLINABLE mapFilter #-}
 mapFilter :: (input -> Maybe output) -> Fetch input -> Fetch output
 mapFilter mapping (Fetch fetchIO) =
-  Fetch $ 
-  fix $ \ doLoop -> do 
-    fetch <- fetchIO
-    case mapping <$> fetch of
-      Just (Just output) -> return (Just output)
-      Just Nothing -> doLoop
-      Nothing -> return Nothing
+  Fetch $ let
+    loop = do 
+      fetch <- fetchIO
+      case mapping <$> fetch of
+        Just (Just output) -> return (Just output)
+        Just Nothing -> loop
+        Nothing -> return Nothing
+    in loop
 
 {-# INLINABLE filter #-}
 filter :: (input -> Bool) -> Fetch input -> Fetch input
 filter predicate (Fetch fetchIO) =
-  Fetch $ 
-  fix $ \ doLoop -> do 
-    fetch <- fetchIO
-    case predicate <$> fetch of
-      Just True -> return fetch
-      Just False -> doLoop
-      Nothing -> return Nothing
-
+  Fetch $ let
+    loop = do 
+      fetch <- fetchIO
+      case predicate <$> fetch of
+        Just True -> return fetch
+        Just False -> loop
+        Nothing -> return Nothing
+    in loop
 
 {-# INLINABLE just #-}
 just :: Fetch (Maybe element) -> Fetch element
 just (Fetch fetchIO) =
-  Fetch $ 
-  fix $ \ doLoop -> do 
-    fetch <- fetchIO
-    case fetch of
-      Just (Just element) -> return (Just element)
-      Just (Nothing) -> doLoop
-      Nothing -> return Nothing
+  Fetch $ let
+    loop = do
+      fetch <- fetchIO
+      case fetch of
+        Just (Just element) -> return (Just element)
+        Just (Nothing) -> loop
+        Nothing -> return Nothing
+    in loop
 
 {-# INLINABLE takeWhile #-}
 takeWhile :: (element -> Bool) -> Fetch element -> Fetch element

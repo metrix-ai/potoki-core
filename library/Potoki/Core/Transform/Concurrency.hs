@@ -15,13 +15,15 @@ bufferize size =
     buffer <- newTBQueueIO size
     activeVar <- newTVarIO True
 
-    forkIO $ fix $ \ loop -> do
-      fetchingResult <- fetchIO
-      case fetchingResult of
-        Just !element -> do
-          atomically $ writeTBQueue buffer element
-          loop
-        Nothing -> atomically $ writeTVar activeVar False
+    forkIO $ let
+      loop = do
+        fetchingResult <- fetchIO
+        case fetchingResult of
+          Just !element -> do
+            atomically $ writeTBQueue buffer element
+            loop
+          Nothing -> atomically $ writeTVar activeVar False
+      in loop
 
     return $ Fetch $ let
       readBuffer = Just <$> readTBQueue buffer
@@ -79,14 +81,15 @@ unsafeConcurrently workersAmount (Transform syncTransformIO) =
 
     replicateM_ workersAmount $ forkIO $ do
       (A.Fetch fetchIO, finalize) <- case syncTransformIO fetchIO of M.Acquire io -> io
-      fix $ \ loop -> do
-        fetchResult <- fetchIO
-        case fetchResult of
-          Just !result -> do
-            atomically (writeTBQueue chan result)
-            loop
-          Nothing -> atomically (modifyTVar' workersCounter pred)
-      finalize
+      let
+        loop = do
+          fetchResult <- fetchIO
+          case fetchResult of
+            Just !result -> do
+              atomically (writeTBQueue chan result)
+              loop
+            Nothing -> atomically (modifyTVar' workersCounter pred)
+        in loop *> finalize
 
     return $ A.Fetch $ let
       readChan = Just <$> readTBQueue chan
@@ -106,11 +109,13 @@ async workersAmount =
     chan <- atomically newEmptyTMVar
     workersCounter <- atomically (newTVar workersAmount)
 
-    replicateM_ workersAmount $ forkIO $ fix $ \ loop -> do
-      fetchResult <- fetchIO
-      case fetchResult of
-        Just input -> atomically (putTMVar chan input) *> loop
-        Nothing -> atomically (modifyTVar' workersCounter pred)
+    replicateM_ workersAmount $ forkIO $ let
+      loop = do
+        fetchResult <- fetchIO
+        case fetchResult of
+          Just input -> atomically (putTMVar chan input) *> loop
+          Nothing -> atomically (modifyTVar' workersCounter pred)
+      in loop
 
     return $ A.Fetch $ let
       readChan = Just <$> takeTMVar chan
