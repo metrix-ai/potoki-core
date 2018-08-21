@@ -13,6 +13,7 @@ module Potoki.Core.Produce
   finiteMVar,
   infiniteMVar,
   lazyByteString,
+  enumInRange,
 )
 where
 
@@ -83,6 +84,13 @@ instance MonadIO Produce where
                   writeIORef ref Nothing
                   getElement
     return fetch
+
+instance Semigroup (Produce a) where
+  (<>) = (<|>)
+
+instance Monoid (Produce a) where
+  mempty = empty
+  mappend = (<>)
 
 {-# INLINABLE list #-}
 list :: [input] -> Produce input
@@ -217,3 +225,10 @@ lazyByteString lbs =
   Produce $ M.Acquire $ do
     ref <- newIORef lbs
     return (A.lazyByteStringRef ref, return ())
+
+{-# INLINE enumInRange #-}
+enumInRange :: (Enum a, Ord a) => a -> a -> Produce a
+enumInRange from to =
+  Produce $ M.Acquire $ do
+    ref <- newIORef from
+    return (A.enumUntil ref to, return ())

@@ -160,15 +160,16 @@ vector =
 {-# INLINABLE count #-}
 count :: Consume input Int
 count =
-  Consume $ \ (A.Fetch fetchIO) -> build fetchIO 0
-  where
-    build fetchIO !acc =
-      fetchIO >>= \case
-        Nothing -> pure acc
-        Just _ -> build fetchIO (succ acc)
+  Consume $ \ (A.Fetch fetchIO) -> let
+    iterate !count = do
+      fetchResult <- fetchIO
+      case fetchResult of
+        Just _ -> iterate (succ count)
+        Nothing -> return count
+    in iterate 0
 
 {-# INLINABLE concat #-}
-concat :: Monoid monoid => Consume monoid monoid
+concat :: (Semigroup monoid, Monoid monoid) => Consume monoid monoid
 concat =
   Consume $ \ (A.Fetch fetchIO) -> build fetchIO mempty
   where

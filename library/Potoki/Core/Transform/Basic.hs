@@ -125,17 +125,33 @@ ioTransform io =
     Transform acquire <- liftIO io
     acquire fetch
 
+count :: Transform a Int
+count = Transform $ \ (Fetch fetchIO) -> do
+  counter <- liftIO (newIORef 0)
+  return $ Fetch $ do
+    result <- fetchIO
+    case result of
+      Just _ -> Just <$> atomicModifyIORef' counter (\ n -> (succ n, n))
+      Nothing -> return Nothing
+
+mapInIOWithCounter :: (Int -> a -> IO b) -> Transform a b
+mapInIOWithCounter handler =
+  ioTransform $ do
+    counter <- newIORef 0
+    return $ mapInIO $ \ a -> do
+      count <- atomicModifyIORef' counter (\ n -> (succ n, n))
+      handler count a
+
+handleCount :: (Int -> IO ()) -> Transform a a
+handleCount handler = mapInIOWithCounter $ \ count a -> do
+  handler count
+  return a
+
 {-|
 Useful for debugging
 -}
 traceWithCounter :: (Int -> String) -> Transform a a
-traceWithCounter showFunc =
-  ioTransform $ do
-    counter <- newIORef 0
-    return $ mapInIO $ \ x -> do
-      n <- atomicModifyIORef' counter (\ n -> (succ n, n))
-      putStrLn (showFunc n)
-      return x
+traceWithCounter shower = handleCount (putStrLn . shower)
 
 {-# INLINE consume #-}
 consume :: Consume input output -> Transform input output

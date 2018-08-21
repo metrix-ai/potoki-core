@@ -4,6 +4,7 @@ module Potoki.Core.Prelude
   ioChunkSize,
   textString,
   unsnoc,
+  mapLeft,
 )
 where
 
@@ -35,10 +36,11 @@ import Data.IORef as Exports
 import Data.Ix as Exports
 import Data.List as Exports hiding (sortOn, isSubsequenceOf, uncons, concat, foldr, foldl1, maximum, minimum, product, sum, all, and, any, concatMap, elem, foldl, foldr1, notElem, or, find, maximumBy, minimumBy, mapAccumL, mapAccumR, foldl')
 import Data.Maybe as Exports
-import Data.Monoid as Exports hiding (Last(..), First(..))
+import Data.Monoid as Exports hiding (Last(..), First(..), (<>))
 import Data.Ord as Exports
 import Data.Proxy as Exports
 import Data.Ratio as Exports
+import Data.Semigroup as Exports
 import Data.STRef as Exports
 import Data.String as Exports
 import Data.Traversable as Exports
@@ -50,7 +52,7 @@ import Debug.Trace as Exports
 import Foreign.ForeignPtr as Exports
 import Foreign.Ptr as Exports
 import Foreign.StablePtr as Exports
-import Foreign.Storable as Exports
+import Foreign.Storable as Exports hiding (sizeOf, alignment)
 import GHC.Conc as Exports hiding (withMVar, threadWaitWriteSTM, threadWaitWrite, threadWaitReadSTM, threadWaitRead)
 import GHC.Exts as Exports (lazy, inline, sortWith, groupWith)
 import GHC.Generics as Exports (Generic)
@@ -109,6 +111,10 @@ import Data.Vector as Exports (Vector)
 -------------------------
 import Data.Hashable as Exports (Hashable)
 
+-- primitive
+-------------------------
+import Data.Primitive as Exports
+
 --------------------------------------------------------------------------------
 
 import qualified Data.Text as A
@@ -135,3 +141,9 @@ unsnoc listVal =
           _ -> case process tailVal of
             (initVal, lastMaybe) -> (headVal : initVal, lastMaybe)
         _ -> ([], Nothing)
+
+{-# INLINE mapLeft #-}
+mapLeft :: (oldLeft -> newLeft) -> Either oldLeft right -> Either newLeft right
+mapLeft f = \ case
+  Left a -> Left (f a)
+  Right b -> Right b
