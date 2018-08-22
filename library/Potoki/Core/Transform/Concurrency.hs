@@ -8,6 +8,32 @@ import qualified Potoki.Core.Fetch as A
 import qualified Acquire.Acquire as M
 
 
+bufferizeFlushing :: Int -> Transform input [input]
+bufferizeFlushing maxSize =
+  Transform $ \ (A.Fetch fetchIO) -> liftIO $ do
+    buffer <- newTBQueueIO maxSize
+    activeVar <- newTVarIO True
+
+    forkIO $ let
+      loop = do
+        fetchingResult <- fetchIO
+        case fetchingResult of
+          Just !element -> do
+            atomically $ writeTBQueue buffer element
+            loop
+          Nothing -> atomically $ writeTVar activeVar False
+      in loop
+
+    return $ Fetch $ atomically $ do
+      batch <- flushTBQueue buffer
+      if null batch
+        then do
+          active <- readTVar activeVar
+          if active
+            then retry
+            else return Nothing
+        else return (Just batch)
+
 {-# INLINE bufferize #-}
 bufferize :: Int -> Transform element element
 bufferize size =

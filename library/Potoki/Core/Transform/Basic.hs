@@ -139,7 +139,7 @@ mapInIOWithCounter :: (Int -> a -> IO b) -> Transform a b
 mapInIOWithCounter handler =
   ioTransform $ do
     counter <- newIORef 0
-    return $ mapInIO $ \ a -> do
+    return $ mapInIO $ \ !a -> do
       count <- atomicModifyIORef' counter (\ n -> (succ n, n))
       handler count a
 
