@@ -17,6 +17,7 @@ module Potoki.Core.Consume
   foldingInIO,
   execState,
   writeBytesToFile,
+  writeBytesToFileWithoutBuffering,
   appendBytesToFile,
   deleteFiles,
   printBytes,
@@ -206,11 +207,32 @@ Overwrite a file.
 -}
 {-# INLINABLE writeBytesToFile #-}
 writeBytesToFile :: FilePath -> Consume ByteString (Either IOException ())
-writeBytesToFile path =
+writeBytesToFile =
+  writeBytesToFileWithBuffering (BlockBuffering Nothing)
+
+{-|
+Overwrite a file.
+
+* Exception-free
+* Automatic resource management
+-}
+{-# INLINABLE writeBytesToFileWithBuffering #-}
+writeBytesToFileWithBuffering :: BufferMode -> FilePath -> Consume ByteString (Either IOException ())
+writeBytesToFileWithBuffering bufferMode path =
   Consume $ \ fetch ->
-  try $ withFile path WriteMode $ \ handleVal ->
+  try $ withFile path WriteMode $ \ handle ->
   do
-    L.fetchAndHandleAll fetch (return ()) (C.hPut handleVal)
+    hSetBuffering handle bufferMode
+    L.fetchAndHandleAll fetch (return ()) (C.hPut handle)
+
+{-|
+A more efficient implementation than just writing to file without buffering.
+It uses an explicit buffer of input chunks and flushes all the chunks that have been so far aggregated at once.
+-}
+{-# INLINABLE writeBytesToFileWithoutBuffering #-}
+writeBytesToFileWithoutBuffering :: FilePath -> Consume ByteString (Either IOException ())
+writeBytesToFileWithoutBuffering =
+  transform (arr mconcat . B.bufferizeFlushing 64) . writeBytesToFileWithBuffering NoBuffering
 
 {-|
 Append to a file.

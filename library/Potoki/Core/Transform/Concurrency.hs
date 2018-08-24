@@ -8,6 +8,32 @@ import qualified Potoki.Core.Fetch as A
 import qualified Acquire.Acquire as M
 
 
+bufferizeFlushing :: Int -> Transform input [input]
+bufferizeFlushing maxSize =
+  Transform $ \ (A.Fetch fetchIO) -> liftIO $ do
+    buffer <- newTBQueueIO maxSize
+    activeVar <- newTVarIO True
+
+    forkIO $ let
+      loop = do
+        fetchingResult <- fetchIO
+        case fetchingResult of
+          Just !element -> do
+            atomically $ writeTBQueue buffer element
+            loop
+          Nothing -> atomically $ writeTVar activeVar False
+      in loop
+
+    return $ Fetch $ atomically $ do
+      batch <- flushTBQueue buffer
+      if null batch
+        then do
+          active <- readTVar activeVar
+          if active
+            then retry
+            else return Nothing
+        else return (Just batch)
+
 {-# INLINE bufferize #-}
 bufferize :: Int -> Transform element element
 bufferize size =
@@ -15,13 +41,15 @@ bufferize size =
     buffer <- newTBQueueIO size
     activeVar <- newTVarIO True
 
-    forkIO $ fix $ \ loop -> do
-      fetchingResult <- fetchIO
-      case fetchingResult of
-        Just !element -> do
-          atomically $ writeTBQueue buffer element
-          loop
-        Nothing -> atomically $ writeTVar activeVar False
+    forkIO $ let
+      loop = do
+        fetchingResult <- fetchIO
+        case fetchingResult of
+          Just !element -> do
+            atomically $ writeTBQueue buffer element
+            loop
+          Nothing -> atomically $ writeTVar activeVar False
+      in loop
 
     return $ Fetch $ let
       readBuffer = Just <$> readTBQueue buffer
@@ -79,14 +107,15 @@ unsafeConcurrently workersAmount (Transform syncTransformIO) =
 
     replicateM_ workersAmount $ forkIO $ do
       (A.Fetch fetchIO, finalize) <- case syncTransformIO fetchIO of M.Acquire io -> io
-      fix $ \ loop -> do
-        fetchResult <- fetchIO
-        case fetchResult of
-          Just !result -> do
-            atomically (writeTBQueue chan result)
-            loop
-          Nothing -> atomically (modifyTVar' workersCounter pred)
-      finalize
+      let
+        loop = do
+          fetchResult <- fetchIO
+          case fetchResult of
+            Just !result -> do
+              atomically (writeTBQueue chan result)
+              loop
+            Nothing -> atomically (modifyTVar' workersCounter pred)
+        in loop *> finalize
 
     return $ A.Fetch $ let
       readChan = Just <$> readTBQueue chan
@@ -106,11 +135,13 @@ async workersAmount =
     chan <- atomically newEmptyTMVar
     workersCounter <- atomically (newTVar workersAmount)
 
-    replicateM_ workersAmount $ forkIO $ fix $ \ loop -> do
-      fetchResult <- fetchIO
-      case fetchResult of
-        Just input -> atomically (putTMVar chan input) *> loop
-        Nothing -> atomically (modifyTVar' workersCounter pred)
+    replicateM_ workersAmount $ forkIO $ let
+      loop = do
+        fetchResult <- fetchIO
+        case fetchResult of
+          Just input -> atomically (putTMVar chan input) *> loop
+          Nothing -> atomically (modifyTVar' workersCounter pred)
+      in loop
 
     return $ A.Fetch $ let
       readChan = Just <$> takeTMVar chan

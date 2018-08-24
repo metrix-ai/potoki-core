@@ -34,39 +34,39 @@ drop :: Int -> Transform input input
 drop amount =
   Transform $ \ (A.Fetch fetchIO) -> M.Acquire $ do
     countRef <- newIORef amount
-    return $ (, return ()) $ 
-      A.Fetch $ fix $ \ doLoop -> do
+    return $ (, return ()) $ A.Fetch $ let
+      loop = do
         count <- readIORef countRef
         if count > 0
           then do
             writeIORef countRef $! pred count
-            doLoop
+            loop
           else fetchIO
+      in loop
 
 {-# INLINE list #-}
 list :: Transform [a] a
 list =
   Transform $ \ (A.Fetch fetchListIO) -> M.Acquire $ do
     bufferRef <- newIORef []
-    return $ (, return ()) $ 
-      A.Fetch $ do
-        buffer <- readIORef bufferRef
-        case buffer of
-          headVal : tailVal -> do
-            writeIORef bufferRef tailVal
-            return (Just headVal)
-          _ ->
-            let
-              fetchElementIO = do
-                fetchListIO >>= \case
-                  Nothing -> return Nothing
-                  Just (headVal : tailVal) -> do
-                    writeIORef bufferRef tailVal
-                    return (Just headVal)
-                  _ -> do
-                    writeIORef bufferRef []
-                    return Nothing
-              in fetchElementIO
+    return $ (, return ()) $ A.Fetch $ do
+      buffer <- readIORef bufferRef
+      case buffer of
+        headVal : tailVal -> do
+          writeIORef bufferRef tailVal
+          return (Just headVal)
+        _ ->
+          let
+            fetchElementIO = do
+              fetchListIO >>= \case
+                Nothing -> return Nothing
+                Just (headVal : tailVal) -> do
+                  writeIORef bufferRef tailVal
+                  return (Just headVal)
+                _ -> do
+                  writeIORef bufferRef []
+                  return Nothing
+            in fetchElementIO
 
 {-# INLINABLE vector #-}
 vector :: Transform (Vector a) a
@@ -74,8 +74,8 @@ vector =
   Transform $ \ (A.Fetch fetchVectorIO) -> M.Acquire $ do
     indexRef <- newIORef 0
     vectorRef <- newIORef mempty
-    return $ (, return ()) $ 
-      A.Fetch $ fix $ \ doLoop -> do
+    return $ (, return ()) $ A.Fetch $ let
+      loop = do
         vectorVal <- readIORef vectorRef
         indexVal <- readIORef indexRef
         if indexVal < P.length vectorVal
@@ -86,26 +86,27 @@ vector =
             Just vectorVal' -> do
               writeIORef vectorRef vectorVal'
               writeIORef indexRef 0
-              doLoop
+              loop
             Nothing -> return Nothing
+      in loop
 
 {-# INLINE distinctBy #-}
 distinctBy :: (Eq comparable, Hashable comparable) => (element -> comparable) -> Transform element element
 distinctBy f =
   Transform $ \ (A.Fetch fetch) -> M.Acquire $ do
     stateRef <- newIORef mempty
-    return $ (, return ()) $ 
-      A.Fetch $ fix $ \ doLoop -> 
-        fetch >>= \case 
-          Nothing -> return Nothing
-          Just input -> do
-            let comparable = f input
-            !set <- readIORef stateRef
-            if C.member comparable set
-              then doLoop
-              else do
-                writeIORef stateRef $! C.insert comparable set
-                return (Just input)
+    return $ (, return ()) $ A.Fetch $ let
+      loop = fetch >>= \case
+        Nothing -> return Nothing
+        Just input -> do
+          let comparable = f input
+          !set <- readIORef stateRef
+          if C.member comparable set
+            then loop
+            else do
+              writeIORef stateRef $! C.insert comparable set
+              return (Just input)
+      in loop
 
 {-# INLINE distinct #-}
 distinct :: (Eq element, Hashable element) => Transform element element
@@ -138,7 +139,7 @@ mapInIOWithCounter :: (Int -> a -> IO b) -> Transform a b
 mapInIOWithCounter handler =
   ioTransform $ do
     counter <- newIORef 0
-    return $ mapInIO $ \ a -> do
+    return $ mapInIO $ \ !a -> do
       count <- atomicModifyIORef' counter (\ n -> (succ n, n))
       handler count a
 
@@ -191,29 +192,31 @@ produce :: (input -> Produce output) -> Transform input output
 produce inputToProduce =
   Transform $ \ (Fetch inputFetchIO) -> do
     stateRef <- liftIO $ newIORef Nothing
-    return $ Fetch $ fix $ \ doLoop -> do
-      state <- readIORef stateRef
-      case state of
-        Just (Fetch outputFetchIO, kill) ->
-          do
-            outputFetchResult <- outputFetchIO
-            case outputFetchResult of
-              Just x -> return (Just x)
-              Nothing -> do
-                kill
-                writeIORef stateRef Nothing
-                doLoop
-        Nothing ->
-          do
-            inputFetchResult <- inputFetchIO
-            case inputFetchResult of
-              Just input -> do
-                case inputToProduce input of
-                  Produce (Acquire produceIO) -> do
-                    fetchAndKill <- produceIO
-                    writeIORef stateRef (Just fetchAndKill)
-                    doLoop
-              Nothing -> return Nothing
+    return $ Fetch $ let
+      loop = do
+        state <- readIORef stateRef
+        case state of
+          Just (Fetch outputFetchIO, kill) ->
+            do
+              outputFetchResult <- outputFetchIO
+              case outputFetchResult of
+                Just x -> return (Just x)
+                Nothing -> do
+                  kill
+                  writeIORef stateRef Nothing
+                  loop
+          Nothing ->
+            do
+              inputFetchResult <- inputFetchIO
+              case inputFetchResult of
+                Just input -> do
+                  case inputToProduce input of
+                    Produce (Acquire produceIO) -> do
+                      fetchAndKill <- produceIO
+                      writeIORef stateRef (Just fetchAndKill)
+                      loop
+                Nothing -> return Nothing
+      in loop
 
 {-# INLINE mapFetch #-}
 mapFetch :: (Fetch a -> Fetch b) -> Transform a b
