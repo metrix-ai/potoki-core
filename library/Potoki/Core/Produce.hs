@@ -1,6 +1,7 @@
 module Potoki.Core.Produce
 (
   Produce(..),
+  list,
   concurrently,
   sequentially,
   empty,
@@ -27,6 +28,16 @@ instance Functor Produce where
 
 instance Pointed Produce where
   point = singleton
+
+{-# INLINABLE list #-}
+list :: [element] -> Produce element
+list inputList = Produce $ \ (EatOne io) ->
+  let step element nextIO = do
+        hungry <- io element
+        if hungry
+          then nextIO
+          else return False
+  in foldr step (return True) inputList
 
 {-|
 Unlift a concurrently composed producer.

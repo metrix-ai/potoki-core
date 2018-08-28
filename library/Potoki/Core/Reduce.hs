@@ -1,6 +1,7 @@
 module Potoki.Core.Reduce
 (
   Reduce(..),
+  list,
   zipping,
   sequentially,
   transduce,
@@ -83,6 +84,22 @@ instance Choice Reduce where
               Nothing -> fmap Right extractB
               Just c -> return (Left c)
           in return (EatOne consumeCOrA, extractCOrB)
+
+{-# INLINABLE list #-}
+list :: Reduce a [a]
+list =
+  Reduce $ do
+    stateRef <- newIORef id
+    let step !acc element = acc . (element:)
+        consume input = do
+          state <- readIORef stateRef
+          let newState = step state input
+          writeIORef stateRef newState
+          return True
+        finish = do
+          state <- readIORef stateRef
+          return (state $ [])
+        in return (EatOne consume, finish)
 
 transduce :: Transduce a b -> Reduce b c -> Reduce a c
 transduce (Transduce transduceIO) (Reduce reduceIO) =
