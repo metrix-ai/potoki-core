@@ -2,6 +2,7 @@ module Potoki.Core.Reduce
 (
   Reduce(..),
   list,
+  count,
   zipping,
   sequentially,
   transduce,
@@ -99,6 +100,18 @@ list =
         finish = do
           state <- readIORef stateRef
           return (state $ [])
+        in return (EatOne consume, finish)
+
+count :: Reduce a Int
+count =
+  Reduce $ do
+    varRef <- newIORef 0
+    let consume _ = do
+          modifyIORef' varRef succ
+          return True
+        finish = do
+          state <- readIORef varRef
+          return state
         in return (EatOne consume, finish)
 
 transduce :: Transduce a b -> Reduce b c -> Reduce a c

@@ -25,8 +25,12 @@ main =
     let fold = Foldl.generalize $ Foldl.list
     in list === unsafePerformIO (IO.produceAndReduce (Produce.list list) (Reduce.foldM fold))
     ,
-    testProperty "" $ \ (list :: [Int]) ->
+    testProperty "FoldM list to Reduce list" $ \ (list :: [Int]) ->
     let fold = Foldl.generalize $ Foldl.list
     in unsafePerformIO (IO.produceAndReduce (Produce.list list) Reduce.list)
       === unsafePerformIO (IO.produceAndReduce (Produce.list list) (Reduce.foldM fold))
+    ,
+    testProperty "Count" $ \ (list :: [Int]) ->
+    let len = length list
+    in len === unsafePerformIO (IO.produceAndReduce (Produce.list list) Reduce.count)
   ]
