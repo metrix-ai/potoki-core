@@ -15,6 +15,18 @@ newtype Produce element =
   whether the consumer is still ready to process more input. -}
   Produce (EatOne element -> IO Bool)
 
+{-|
+A producer which composes concurrently.
+-}
+newtype ProduceConcurrently element =
+  ProduceConcurrently (Produce element)
+
+{-|
+A producer which composes sequentially.
+-}
+newtype ProduceSequentially element =
+  ProduceSequentially (Produce element)
+
 newtype Reduce element reduction =
   Reduce (IO (EatOne element, IO reduction))
 
@@ -34,15 +46,3 @@ to use it concurrently.
 -}
 newtype TransduceConcurrently input output =
   TransduceConcurrently (Transduce input output)
-
-{-|
-A producer which composes concurrently.
--}
-newtype ProduceConcurrently element =
-  ProduceConcurrently (Produce element)
-
-{-|
-A producer which composes sequentially.
--}
-newtype ProduceSequentially element =
-  ProduceSequentially (Produce element)
