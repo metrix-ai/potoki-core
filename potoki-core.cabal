@@ -93,8 +93,8 @@ benchmark benchmark
   main-is:
     Main.hs
   other-modules:
-    -- Tests.Choice
-    -- Tests.Strong
+    Tests.Choice
+    Tests.Strong
     -- Tests.Transform
     -- Tests.Consume
     -- Tests.Produce

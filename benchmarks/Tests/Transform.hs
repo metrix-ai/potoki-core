@@ -6,13 +6,13 @@ module Tests.Transform
 where
 
 import Prelude
-import Potoki.Core.Transform
+import Potoki.Core.Transduce
 
 
-transformSucc :: Transform Int Int
+transformSucc :: Transduce Int Int
 transformSucc =
   arr succ
 
-transformNot :: Transform Bool Bool
+transformNot :: Transduce Bool Bool
 transformNot =
   arr not
