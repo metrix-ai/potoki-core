@@ -73,9 +73,15 @@ import Text.Printf as Exports (printf, hPrintf)
 import Text.Read as Exports (Read(..), readMaybe, readEither)
 import Unsafe.Coerce as Exports
 
--- bytestring
+-- contravariant
 -------------------------
-import Data.ByteString as Exports (ByteString)
+import Data.Functor.Contravariant as Exports
+import Data.Functor.Contravariant.Divisible as Exports
+
+-- pointed
+-------------------------
+import Data.Pointed as Exports
+import Data.Copointed as Exports
 
 -- profunctors
 -------------------------
@@ -83,13 +89,13 @@ import Data.Profunctor.Unsafe as Exports
 import Data.Profunctor.Choice as Exports
 import Data.Profunctor.Strong as Exports
 
+-- semigroupoids
+-------------------------
+import Data.Semigroupoid as Exports
+
 -- stm
 -------------------------
 import Control.Concurrent.STM as Exports
-
--- acquire
--------------------------
-import Acquire.Acquire as Exports
 
 -- text
 -------------------------
@@ -111,9 +117,18 @@ import Data.Vector as Exports (Vector)
 -------------------------
 import Data.Hashable as Exports (Hashable)
 
--- primitive
+-- stm
 -------------------------
-import Data.Primitive as Exports
+import Control.Concurrent.STM as Exports
+
+-- deferred-folds
+-------------------------
+import DeferredFolds.Unfold as Exports (Unfold(..))
+import DeferredFolds.UnfoldM as Exports (UnfoldM(..))
+
+-- foldl
+-------------------------
+import Control.Foldl as Exports (Fold(..), FoldM(..))
 
 --------------------------------------------------------------------------------
 

@@ -1,43 +1,22 @@
-module Potoki.Core.IO (
-  produceAndConsume,
-  produceAndTransformAndConsume,
-  produce,
-  consume,
-  transformList,
-) where
+module Potoki.Core.IO
+where
 
 import Potoki.Core.Prelude
 import Potoki.Core.Types
-import qualified Potoki.Core.Produce as A
-import qualified Potoki.Core.Consume as B
-import qualified Acquire.IO as C
 
 
-produceAndConsume :: Produce input -> Consume input output -> IO output
-produceAndConsume (Produce produceAcquire) (Consume consumeIO) =
-  C.acquire produceAcquire consumeIO
+produceAndReduce :: Produce input -> Reduce input output -> IO output
+produceAndReduce (Produce produceIO) (Reduce reduceIO) =
+  do
+    (consume, finish) <- reduceIO
+    produceIO consume
+    finish
 
-produceAndTransformAndConsume :: Produce input -> Transform input anotherInput -> Consume anotherInput output -> IO output
-produceAndTransformAndConsume (Produce produceAcquire) (Transform transformAcquire) (Consume consumeIO) =
-  C.acquire (produceAcquire >>= transformAcquire) consumeIO
-
-produce :: Produce input -> forall x. IO x -> (input -> IO x) -> IO x
-produce (Produce produceAcquire) stop emit =
-  C.acquire produceAcquire $ \ (Fetch fetchIO) -> let
-    loop = do
-      fetch <- fetchIO
-      case fetch of
-        Nothing      -> stop
-        Just element -> emit element >> loop
-    in loop
-
-consume :: IO (Maybe input) -> Consume input output -> IO output
-consume fetchIO (Consume consumeIO) =
-  consumeIO $ Fetch fetchIO
-
-transformList :: Transform a b -> [a] -> IO [b]
-transformList transform inputList =
-  produceAndTransformAndConsume
-    (A.list inputList)
-    transform
-    (B.list)
+produceAndTransduceAndReduce :: Produce input1 -> Transduce input1 input2 -> Reduce input2 output -> IO output
+produceAndTransduceAndReduce (Produce produceIO) (Transduce transduceIO) (Reduce reduceIO) =
+  do
+    (consume, finishReducer) <- reduceIO
+    (transducedEatOne, finishTransducer) <- transduceIO consume
+    produceIO transducedEatOne
+    finishTransducer
+    finishReducer

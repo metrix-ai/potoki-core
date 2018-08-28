@@ -5,30 +5,44 @@ import Potoki.Core.Prelude
 
 
 {-|
-Passive producer of elements.
+A specification of how to consume one input.
 -}
-newtype Fetch element =
-  Fetch (IO (Maybe element))
+newtype EatOne input =
+  EatOne (input -> IO Bool)
 
-{-|
-Passive producer of elements with support for early termination
-and resource management.
--}
 newtype Produce element =
-  Produce (Acquire (Fetch element))
+  {-| An action, which executes the consuming action, and indicates,
+  whether the consumer is still ready to process more input. -}
+  Produce (EatOne element -> IO Bool)
+
+newtype Reduce element reduction =
+  Reduce (IO (EatOne element, IO reduction))
+
+newtype ReduceSequentially element reduction =
+  ReduceSequentially (Reduce element (Maybe reduction))
+
+newtype ReduceZipping element reduction =
+  ReduceZipping (Reduce element reduction)
+
+newtype Transduce input output =
+  Transduce (EatOne output -> IO (EatOne input, IO ()))
 
 {-|
-Active consumer of input into output.
-Sort of like a reducer in Map/Reduce.
-
-Automates the management of resources.
+Same as 'Transduce',
+only comes with guarantees that it's safe
+to use it concurrently.
 -}
-newtype Consume input output =
-  {-|
-  An action, which executes the provided fetch in IO,
-  while managing the resources behind the scenes.
-  -}
-  Consume (Fetch input -> IO output)
+newtype TransduceConcurrently input output =
+  TransduceConcurrently (Transduce input output)
 
-newtype Transform input output =
-  Transform (Fetch input -> Acquire (Fetch output))
+{-|
+A producer which composes concurrently.
+-}
+newtype ProduceConcurrently element =
+  ProduceConcurrently (Produce element)
+
+{-|
+A producer which composes sequentially.
+-}
+newtype ProduceSequentially element =
+  ProduceSequentially (Produce element)
