@@ -100,6 +100,10 @@ apConcurrently (Consume leftConsumeIO) (Consume rightConsumeIO) =
     rightOutput <- takeMVar rightOutputVar
     return (leftOutput rightOutput)
 
+unit :: Consume a ()
+unit =
+  Consume $ \ _ -> return ()
+
 {-# INLINABLE list #-}
 list :: Consume input [input]
 list =
