@@ -86,6 +86,11 @@ instance Choice Reduce where
               Just c -> return (Left c)
           in return (EatOne consumeCOrA, extractCOrB)
 
+unit :: Reduce a ()
+unit =
+  Reduce $ do
+    return (EatOne (\_ -> return True), return ())
+
 {-# INLINABLE list #-}
 list :: Reduce a [a]
 list =
@@ -139,4 +144,18 @@ foldM (FoldM step init extract) =
         finish = do
           state <- readIORef stateRef
           extract state
+        in return (EatOne consume, finish)
+
+fold :: Fold a b -> Reduce a b
+fold (Fold step init extract) =
+  Reduce $ do
+    stateRef <- newIORef init
+    let consume input = do
+          state <- readIORef stateRef
+          let newState = step state input
+          writeIORef stateRef newState
+          return True
+        finish = do
+          state <- readIORef stateRef
+          return (extract state)
         in return (EatOne consume, finish)
