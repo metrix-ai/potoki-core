@@ -87,6 +87,11 @@ instance Choice Reduce where
               Just c -> return (Left c)
           in return (EatOne consumeCOrA, extractCOrB)
 
+unit :: Reduce a ()
+unit =
+  Reduce $ do
+    return (EatOne (\_ -> return True), return ())
+
 {-# INLINABLE list #-}
 list :: Reduce a [a]
 list =
