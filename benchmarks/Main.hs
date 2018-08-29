@@ -26,6 +26,10 @@ main = defaultMain
       , bench "first'(succ)"  $ nfIO (S.testStrong4 1000000)
       , bench "second'(succ)" $ nfIO (S.testStrong5 1000000)
       ]
+  , bgroup "produceAndConsume"
+      [ bench "list unit" $ nfIO (Co.consumeUnit 1000000)
+      , bench "list list" $ nfIO (Co.consumeList 1000000)
+      ]
   , bgroup "Produce"
       [ bench "Produce monad --> 1000" $ nfIO (P.monad 1000)
       , bench "Produce List --> 10000" $ nfIO (P.produceList 10000)

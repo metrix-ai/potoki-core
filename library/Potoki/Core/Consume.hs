@@ -2,6 +2,7 @@ module Potoki.Core.Consume
 (
   Consume(..),
   apConcurrently,
+  unit,
   list,
   sum,
   transform,
@@ -69,7 +70,7 @@ instance Choice Consume where
        fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
        case fetchedLeftMaybe of
          Nothing          -> return $ Right consumedRight
-         Just fetchedLeft -> return $ Left fetchedLeft 
+         Just fetchedLeft -> return $ Left fetchedLeft
 
 instance Functor (Consume input) where
   fmap = rmap
@@ -108,7 +109,7 @@ unit =
 list :: Consume input [input]
 list =
   Consume $ \ (Fetch fetchIO) ->
-    let 
+    let
       build !acc = do
         fetch <- fetchIO
         case fetch of
@@ -140,8 +141,8 @@ head =
 
 {-# INLINABLE last #-}
 last :: Consume input (Maybe input)
-last = 
-  fold D.last 
+last =
+  fold D.last
 
 {-|
 A faster alternative to "list",
@@ -304,7 +305,7 @@ foldingInIO (D.FoldM step initVal extract) (Consume consumeIO) =
 
 {-# INLINE execState #-}
 execState :: (a -> O.State s b) -> s -> Consume a s
-execState stateFn initialState = 
+execState stateFn initialState =
   fold $ D.Fold (\currentState input -> snd $ O.runState (stateFn input) currentState) initialState id
 
 {-# INLINABLE runParseResult #-}
@@ -345,4 +346,3 @@ Execute a Consume concurrently and consume its results.
 concurrently :: Int -> Consume a b -> Consume b c -> Consume a c
 concurrently amount consume1 consume2 =
   transform (B.concurrently amount (J.consume consume1)) consume2
-  

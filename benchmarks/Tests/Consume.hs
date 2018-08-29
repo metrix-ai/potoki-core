@@ -10,6 +10,14 @@ import qualified Tests.Transform as BT
 import qualified Data.Vector as V
 import Tests.Choice (val2Either)
 
+consumeUnit :: Int -> IO ()
+consumeUnit n =
+  let list = [0..n]
+  in
+    IO.produceAndConsume
+      (P.list list)
+      C.unit
+
 consumeList :: Int -> IO [Int]
 consumeList n =
   let list = [0..n]
