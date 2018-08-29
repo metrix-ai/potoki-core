@@ -9,7 +9,7 @@ import Gauge.Main
 import Tests.Choice as C
 import Tests.Strong as S
 -- import Tests.Produce as P
--- import Tests.Consume as Co
+import Tests.Reduce as R
 
 main :: IO ()
 main = defaultMain
@@ -25,6 +25,10 @@ main = defaultMain
       [ bench "natural"       $ nfIO (S.testStrong1 1000000)
       , bench "first'(succ)"  $ nfIO (S.testStrong4 1000000)
       , bench "second'(succ)" $ nfIO (S.testStrong5 1000000)
+      ]
+  , bgroup "produceAndReduce"
+      [ bench "list unit" $ nfIO (R.reduceUnit 1000000)
+      , bench "list list" $ nfIO (R.reduceList 1000000)
       ]
 --   , bgroup "Produce"
 --       [ bench "Produce monad --> 1000" $ nfIO (P.monad 1000)

@@ -96,7 +96,7 @@ benchmark benchmark
     Tests.Choice
     Tests.Strong
     -- Tests.Transform
-    -- Tests.Consume
+    Tests.Reduce
     -- Tests.Produce
   default-extensions:
     Arrows, BangPatterns, ConstraintKinds, DataKinds, InstanceSigs,

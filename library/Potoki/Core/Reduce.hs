@@ -8,6 +8,7 @@ module Potoki.Core.Reduce
   transduce,
   foldM,
   fold,
+  unit,
 )
 where
 
