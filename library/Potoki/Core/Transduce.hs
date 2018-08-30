@@ -4,10 +4,11 @@ module Potoki.Core.Transduce
   produce,
   reduce,
   concurrently,
+  take,
 )
 where
 
-import Potoki.Core.Prelude
+import Potoki.Core.Prelude hiding (take)
 import Potoki.Core.Types
 import qualified Potoki.Core.EatOne as A
 
@@ -113,3 +114,19 @@ produce aToProduceB =
 
 concurrently :: Int -> TransduceConcurrently a b -> Transduce a b
 concurrently = undefined
+
+take :: Int -> Transduce a a
+take amount
+  | amount <= 0 =
+    Transduce $ \ _ -> return $ (, return ()) $ EatOne (\ _ -> return False)
+  | otherwise =
+    Transduce $ \ (EatOne consume) -> do
+      countRef <- newIORef amount
+      return $ (,return ()) $ EatOne $ \ input -> do
+        count <- readIORef countRef
+        if count > 0
+          then do
+            modifyIORef' countRef pred
+            consume input
+          else
+            return False

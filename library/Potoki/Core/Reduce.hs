@@ -3,6 +3,7 @@ module Potoki.Core.Reduce
   Reduce(..),
   list,
   count,
+  sum,
   zipping,
   sequentially,
   transduce,
@@ -10,7 +11,7 @@ module Potoki.Core.Reduce
 )
 where
 
-import Potoki.Core.Prelude hiding (foldM)
+import Potoki.Core.Prelude hiding (foldM, sum)
 import Potoki.Core.Types
 import qualified Potoki.Core.EatOne as A
 
@@ -113,6 +114,18 @@ count =
     varRef <- newIORef 0
     let consume _ = do
           modifyIORef' varRef succ
+          return True
+        finish = do
+          state <- readIORef varRef
+          return state
+        in return (EatOne consume, finish)
+
+sum :: (Num num) => Reduce num num
+sum =
+  Reduce $ do
+    varRef <- newIORef 0
+    let consume input = do
+          modifyIORef' varRef (+input)
           return True
         finish = do
           state <- readIORef varRef
