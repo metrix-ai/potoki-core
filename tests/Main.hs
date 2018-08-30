@@ -52,6 +52,8 @@ transduce =
   [
     transduceProduce
     ,
+    transduceChoice
+    ,
     transduceArrowLaws
   ]
 
@@ -84,6 +86,31 @@ transduceProduce =
         (Transduce.produce (Produce.list . \ n -> [n, n]))
         (Reduce.list)
       assertEqual "" [1, 1, 2, 2, 3, 3] result
+  ]
+
+transduceChoice =
+  testGroup "Choice" $
+  [
+    testCase "1" $ do
+      let
+        list = [Left 1, Left 2, Right 'z', Left 2, Right 'a', Left 1, Right 'b', Left 0, Right 'x', Left 4, Left 3]
+        transduce = left' id
+      result <- IO.produceAndTransduceAndReduce (Produce.list list) transduce Reduce.list
+      assertEqual "" [Left 1, Left 2, Right 'z', Left 2, Right 'a', Left 1, Right 'b', Left 0, Right 'x', Left 4, Left 3] result
+    ,
+    testCase "2" $ do
+      let
+        list = [Left 1, Left 2, Right 'z', Right 'a', Right 'b', Left 0, Right 'x', Left 4, Left 3]
+        transduce = right' (Transduce.reduce Reduce.list)
+      result <- IO.produceAndTransduceAndReduce (Produce.list list) transduce Reduce.list
+      assertEqual "" [Left 1, Left 2, Right "zab", Left 0, Right "x", Left 4, Left 3] result
+    ,
+    testCase "3" $ do
+      let
+        list = [Left 4, Right 'z', Right 'a', Left 3, Right 'b', Left 0, Left 1, Right 'x', Left 4, Left 3]
+        transduce = left' (Transduce.reduce Reduce.list)
+      result <- IO.produceAndTransduceAndReduce (Produce.list list) transduce Reduce.list
+      assertEqual "" [Left [4], Right 'z', Right 'a', Left [3], Right 'b', Left [0, 1], Right 'x', Left [4, 3]] result
   ]
 
 transduceArrowLaws :: TestTree
