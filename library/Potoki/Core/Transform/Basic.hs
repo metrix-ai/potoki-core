@@ -149,6 +149,20 @@ handleCount handler = mapInIOWithCounter $ \ count a -> do
   return a
 
 {-|
+Provides for progress monitoring by means of periodic measurement.
+-}
+handleCountOnInterval :: NominalDiffTime -> (Int -> IO ()) -> Transform a a
+handleCountOnInterval interval handler = ioTransform $ do
+  nextTime <- addUTCTime interval <$> getCurrentTime
+  nextTimeRef <- newIORef nextTime
+  return $ handleCount $ \ count -> do
+    nextTime <- readIORef nextTimeRef
+    time <- getCurrentTime
+    when (time >= nextTime) $ do
+      writeIORef nextTimeRef (addUTCTime interval nextTime)
+      handler count
+
+{-|
 Useful for debugging
 -}
 traceWithCounter :: (Int -> String) -> Transform a a

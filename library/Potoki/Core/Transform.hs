@@ -44,6 +44,7 @@ module Potoki.Core.Transform
   count,
   mapInIOWithCounter,
   handleCount,
+  handleCountOnInterval,
   traceWithCounter,
 )
 where
