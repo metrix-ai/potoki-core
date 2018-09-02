@@ -16,6 +16,7 @@ module Potoki.Core.Consume
   folding,
   foldingInIO,
   execState,
+  writeBytesToStdout,
   writeBytesToFile,
   writeBytesToFileWithoutBuffering,
   appendBytesToFile,
@@ -202,6 +203,11 @@ printText =
 printString :: Consume String ()
 printString =
   processInIO (putChar '\n') putStr
+
+{-# INLINABLE writeBytesToStdout #-}
+writeBytesToStdout :: Consume ByteString ()
+writeBytesToStdout =
+  processInIO (return ()) (C.hPut stdout)
 
 {-|
 Overwrite a file.
