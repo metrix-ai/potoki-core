@@ -51,7 +51,6 @@ list =
     bufferRef <- newIORef []
     let
       fetchFromBufferOr whenEmpty = do
-        traceM "Fetching from buffer"
         buffer <- readIORef bufferRef
         case buffer of
           (!head) : tail -> do
@@ -60,7 +59,6 @@ list =
           _ -> whenEmpty
       fetchFromSource = do
         fetchedList <- fetchListIO
-        traceM "Fetching from source"
         case fetchedList of
           Just list -> case list of
             (!head) : tail -> do
