@@ -6,6 +6,7 @@ import Potoki.Core.Transform.Instances ()
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Acquire.Acquire as M
+import qualified Control.Concurrent.Chan.Unagi.Bounded as Unagi
 
 
 bufferizeFlushing :: Int -> Transform input [input]
@@ -36,29 +37,26 @@ bufferizeFlushing maxSize =
 
 {-# INLINE bufferize #-}
 bufferize :: Int -> Transform element element
-bufferize size =
+bufferize maxSize =
   Transform $ \ (A.Fetch fetchIO) -> liftIO $ do
-    buffer <- newTBQueueIO size
-    activeVar <- newTVarIO True
+
+    (inChan, outChan) <- Unagi.newChan maxSize
 
     forkIO $ let
       loop = do
         fetchingResult <- fetchIO
         case fetchingResult of
           Just !element -> do
-            atomically $ writeTBQueue buffer element
+            Unagi.writeChan inChan (Just element)
             loop
-          Nothing -> atomically $ writeTVar activeVar False
+          Nothing -> Unagi.writeChan inChan Nothing
       in loop
 
-    return $ Fetch $ let
-      readBuffer = Just <$> readTBQueue buffer
-      terminate = do
-        active <- readTVar activeVar
-        if active
-          then empty
-          else return Nothing
-      in atomically (readBuffer <|> terminate)
+    return $ Fetch $ do
+      readResult <- Unagi.readChan outChan
+      case readResult of
+        Just element -> return (Just element)
+        Nothing -> return Nothing
 
 {-|
 Identity Transform, which ensures that the inputs are fetched synchronously.
