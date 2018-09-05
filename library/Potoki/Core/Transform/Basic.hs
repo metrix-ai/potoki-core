@@ -49,26 +49,27 @@ drop amount =
 {-# INLINE list #-}
 list :: Transform [a] a
 list =
-  Transform $ \ (A.Fetch fetchListIO) -> M.Acquire $ do
+  Transform $ \ (A.Fetch fetchListIO) -> liftIO $ do
     bufferRef <- newIORef []
-    return $ (, return ()) $ A.Fetch $ do
-      buffer <- readIORef bufferRef
-      case buffer of
-        headVal : tailVal -> do
-          writeIORef bufferRef tailVal
-          return (Just headVal)
-        _ ->
-          let
-            fetchElementIO = do
-              fetchListIO >>= \case
-                Nothing -> return Nothing
-                Just (headVal : tailVal) -> do
-                  writeIORef bufferRef tailVal
-                  return (Just headVal)
-                _ -> do
-                  writeIORef bufferRef []
-                  return Nothing
-            in fetchElementIO
+    let
+      fetchFromBufferOr whenEmpty = do
+        buffer <- readIORef bufferRef
+        case buffer of
+          (!head) : tail -> do
+            writeIORef bufferRef tail
+            return (Just head)
+          _ -> whenEmpty
+      fetchFromSource = do
+        fetchedList <- fetchListIO
+        case fetchedList of
+          Just list -> case list of
+            (!head) : tail -> do
+              writeIORef bufferRef tail
+              return (Just head)
+            _ -> do
+              fetchFromSource
+          Nothing -> return Nothing
+      in return $ A.Fetch $ fetchFromBufferOr fetchFromSource
 
 {-# INLINABLE vector #-}
 vector :: Transform (Vector a) a
