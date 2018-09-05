@@ -25,7 +25,6 @@ transform =
       gen = do
         list <- listOf (choose (0, 1000 :: Int))
         chunkSize <- frequency [(1000, choose (1, 3)), (100, choose (4, 100)), (1, pure 0)]
-        traceShowM (list, chunkSize)
         return (list, chunkSize)
       in forAll gen $ \ (list, chunkSize) -> let
         listChunks = if chunkSize < 1 then [] else SplitList.chunksOf chunkSize list
