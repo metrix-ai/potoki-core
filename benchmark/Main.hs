@@ -17,18 +17,18 @@ main =
         (Produce.fileBytes "data/2.tsv")
         (right' (Consume.transform
           (Transform.extractLinesWithoutTrailAsPoking)
-          (Consume.count)))
+          (Consume.list)))
       ,
       bench "extractLinesWithoutTrail" $ whnfIO $ produceAndConsume
         (Produce.fileBytes "data/2.tsv")
         (right' (Consume.transform
           (Transform.extractLinesWithoutTrail)
-          (Consume.count)))
+          (Consume.list)))
       ,
       bench "extractLines" $ whnfIO $ produceAndConsume
         (Produce.fileBytes "data/2.tsv")
         (right' (Consume.transform
           (Transform.extractLines)
-          (Consume.count)))
+          (Consume.list)))
     ]
   ]
