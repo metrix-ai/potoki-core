@@ -96,9 +96,9 @@ vector =
 Chunk to vectors of the given size.
 Useful as a precursor of 'concurrently' in cases where the lifted transform's iteration is too light.
 -}
-{-# INLINABLE chunk #-}
-chunk :: Int -> Transform a (Vector a)
-chunk size = if size < 1
+{-# INLINABLE batch #-}
+batch :: Int -> Transform a (Vector a)
+batch size = if size < 1
   then Transform $ const $ liftIO $ return $ empty
   else Transform $ \ (Fetch fetch) -> liftIO $ do
     mvec <- MutableGenericVector.new size
