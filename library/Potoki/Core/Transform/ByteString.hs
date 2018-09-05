@@ -60,6 +60,10 @@ extractLines =
 
 extractLinesWithoutTrail :: Transform ByteString ByteString
 extractLinesWithoutTrail =
+  rmap D.poking extractLinesWithoutTrailAsPoking
+
+extractLinesWithoutTrailAsPoking :: Transform ByteString C.Poking
+extractLinesWithoutTrailAsPoking =
   lineList >>> filter (not . null) >>> list
   where
     lineList =
@@ -75,9 +79,7 @@ extractLinesWithoutTrail =
                 case unsnoc tail of
                   Just (!init, last) -> do
                     writeIORef pokingRef (C.bytes last)
-                    let
-                      !bytes = D.poking newPoking
-                      in return (Just (bytes : init))
+                    return (Just (newPoking : fmap C.bytes init))
                   Nothing -> do
                     writeIORef pokingRef newPoking
                     return (Just [])
@@ -86,6 +88,4 @@ extractLinesWithoutTrail =
               poking <- readIORef pokingRef
               if C.null poking
                 then return Nothing
-                else let
-                  !bytes = D.poking poking
-                  in return (Just (bytes : []))
+                else return (Just (poking : []))

@@ -11,9 +11,24 @@ import qualified Potoki.Core.Transform as Transform
 main =
   defaultMain $
   [
-    bench "extractLinesTransform" $ whnfIO $ produceAndConsume
-      (Produce.fileBytes "data/2.tsv")
-      (right' (Consume.transform
-        (Transform.extractLines)
-        (Consume.count)))
+    bgroup "Transforms"
+    [
+      bench "extractLinesWithoutTrailAsPoking" $ whnfIO $ produceAndConsume
+        (Produce.fileBytes "data/2.tsv")
+        (right' (Consume.transform
+          (Transform.extractLinesWithoutTrailAsPoking)
+          (Consume.count)))
+      ,
+      bench "extractLinesWithoutTrail" $ whnfIO $ produceAndConsume
+        (Produce.fileBytes "data/2.tsv")
+        (right' (Consume.transform
+          (Transform.extractLinesWithoutTrail)
+          (Consume.count)))
+      ,
+      bench "extractLines" $ whnfIO $ produceAndConsume
+        (Produce.fileBytes "data/2.tsv")
+        (right' (Consume.transform
+          (Transform.extractLines)
+          (Consume.count)))
+    ]
   ]
