@@ -103,7 +103,6 @@ unsafeConcurrently workersAmount (Transform syncTransformIO) =
   Transform $ \ fetchIO -> liftIO $ do
     chan <- newTBQueueIO (workersAmount * 2)
     workersCounter <- newTVarIO workersAmount
-    fetchingAvailableVar <- newTVarIO True
 
     replicateM_ workersAmount $ forkIO $ do
       (A.Fetch fetchIO, finalize) <- case syncTransformIO fetchIO of M.Acquire io -> io
