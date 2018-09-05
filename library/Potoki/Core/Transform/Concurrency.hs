@@ -3,6 +3,7 @@ where
 
 import Potoki.Core.Prelude hiding (take, takeWhile, filter)
 import Potoki.Core.Transform.Instances ()
+import Potoki.Core.Transform.Basic
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Acquire.Acquire as M
@@ -150,3 +151,9 @@ async workersAmount =
           then empty
           else return Nothing
       in atomically (readChan <|> terminate)
+
+concurrentlyWithBatching :: Int -> Int -> Transform a b -> Transform a b
+concurrentlyWithBatching batching concurrency transform =
+  batch batching >>> bufferize concurrency >>>
+  unsafeConcurrently concurrency (vector >>> transform >>> batch batching) >>>
+  vector
