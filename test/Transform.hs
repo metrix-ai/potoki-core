@@ -1,6 +1,6 @@
 module Transform where
 
-import Prelude hiding (first, second)
+import Prelude hiding (first, second, choose)
 import Control.Arrow
 import Test.QuickCheck.Instances
 import Test.Tasty
@@ -14,12 +14,24 @@ import qualified Potoki.Core.Produce as E
 import qualified Data.Attoparsec.ByteString.Char8 as B
 import qualified Data.ByteString as F
 import qualified Data.Vector as G
+import qualified Data.List.Split as SplitList
 import qualified System.Random as H
 
 transform :: TestTree
 transform =
   testGroup "Transform" $
   [
+    testProperty "Applying chunksOf to list has the same effect as the \"chunk\" transform" $ let
+      gen = do
+        list <- listOf (choose (0, 1000 :: Int))
+        chunkSize <- frequency [(1000, choose (1, 3)), (100, choose (4, 100)), (1, pure 0)]
+        traceShowM (list, chunkSize)
+        return (list, chunkSize)
+      in forAll gen $ \ (list, chunkSize) -> let
+        listChunks = if chunkSize < 1 then [] else SplitList.chunksOf chunkSize list
+        potokiChunks = unsafePerformIO $ C.produceAndTransformAndConsume (E.list list) (rmap toList (A.chunk chunkSize)) D.list
+        in listChunks === potokiChunks
+    ,
     transformProduce
     ,
     transformChoice
