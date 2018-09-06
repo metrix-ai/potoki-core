@@ -26,24 +26,24 @@ reduceList n =
       (P.list list)
       C.list
 
--- consumeVector :: Int -> IO (V.Vector Int)
--- consumeVector n =
+-- reduceVector :: Int -> IO (V.Vector Int)
+-- reduceVector n =
 --   let list = [0..n]
 --   in
 --     IO.produceAndReduce
 --       (P.list list)
 --       C.vector
 
--- consumeApConcurrently :: Int -> IO Int
--- consumeApConcurrently n =
+-- reduceApConcurrently :: Int -> IO Int
+-- reduceApConcurrently n =
 --   let list = [0..n]
 --   in
 --     IO.produceAndReduce
 --       (P.list list)
 --       (C.apConcurrently (C.fold foldFunc) C.count)
 
-consumeRight' :: Int -> IO (Either Int Int)
-consumeRight' n =
+reduceRight' :: Int -> IO (Either Int Int)
+reduceRight' n =
   let list = fmap (val2Either even) [0..n]
   in
     IO.produceAndReduce

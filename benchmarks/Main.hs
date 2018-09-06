@@ -37,10 +37,10 @@ main = defaultMain
       , bench "Produce Vector --> 10000" $ nfIO (P.produceVector 10000)
       , bench "produceAlternative --> 10000" $ nfIO (P.produceAlternative 10000)
       ]
---   , bgroup "Consume"
---       [ bench "Consume List --> 10000" $ nfIO (Co.consumeList 10000)
---       , bench "Consume Vector --> 10000" $ nfIO (Co.consumeVector 10000)
---       , bench "Consume apConcurrently --> 10000" $ nfIO (Co.consumeApConcurrently 10000)
---       , bench "Consume Choice right' --> 10000" $ nfIO (Co.consumeRight' 10000)
---       ]
+  , bgroup "Reduce"
+      [ bench "Reduce List --> 10000" $ nfIO (R.reduceList 10000)
+      -- , bench "Reduce Vector --> 10000" $ nfIO (Co.reduceVector 10000)
+      -- , bench "Reduce apConcurrently --> 10000" $ nfIO (Co.reduceApConcurrently 10000)
+      , bench "Reduce Choice right' --> 10000" $ nfIO (R.reduceRight' 10000)
+      ]
   ]
