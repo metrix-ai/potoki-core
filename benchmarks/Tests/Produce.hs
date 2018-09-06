@@ -8,7 +8,7 @@ import qualified Potoki.Core.ProduceSequentially as PS
 import qualified Potoki.Core.Reduce as C
 import qualified Data.Vector as V
 
-monad :: Int -> IO ()
+monad :: Int -> IO Int
 monad n =
   let list = [0..n]
       prod1 = PS.produce $ P.list list
@@ -16,25 +16,25 @@ monad n =
   in
     IO.produceAndReduce
       (unsafeCoerce $ prod1 >>= prod2)
-      C.unit
+      C.sum
 
-produceList :: Int -> IO ()
+produceList :: Int -> IO Int
 produceList n =
   let list = [0..n]
   in
     IO.produceAndReduce
       (P.list list)
-      C.unit
+      C.sum
 
-produceVector :: Int -> IO ()
+produceVector :: Int -> IO Int
 produceVector n =
   let vector = V.fromList [0..n]
   in
     IO.produceAndReduce
       (P.vector vector)
-      C.unit
+      C.sum
 
-produceAlternative :: Int -> IO ()
+produceAlternative :: Int -> IO Int
 produceAlternative n =
   let list = [0..n]
       vector = V.fromList list
@@ -43,4 +43,4 @@ produceAlternative n =
   in
     IO.produceAndReduce
       (unsafeCoerce $ prod1 <|> prod2)
-      C.unit
+      C.sum

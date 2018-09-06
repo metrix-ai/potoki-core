@@ -15,11 +15,11 @@ transduceNot :: Transduce Bool Bool
 transduceNot =
   arr not
 
-transduceTake :: Int -> IO ()
+transduceTake :: Int -> IO Int
 transduceTake n =
   let list = [0..n]
   in
     IO.produceAndTransduceAndReduce
       (P.list list)
       (take n)
-      R.unit
+      R.sum
