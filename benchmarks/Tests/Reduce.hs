@@ -6,7 +6,7 @@ import Control.Foldl hiding (list)
 import qualified Potoki.Core.IO as IO
 import qualified Potoki.Core.Produce as P
 import qualified Potoki.Core.Reduce as C
-import qualified Tests.Transform as BT
+import qualified Tests.Transduce as BT
 import qualified Data.Vector as V
 import Tests.Choice (val2Either)
 

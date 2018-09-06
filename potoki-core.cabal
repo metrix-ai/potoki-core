@@ -95,7 +95,7 @@ benchmark benchmark
   other-modules:
     Tests.Choice
     Tests.Strong
-    -- Tests.Transform
+    Tests.Transduce
     Tests.Reduce
     -- Tests.Produce
   default-extensions:

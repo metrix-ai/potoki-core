@@ -5,7 +5,7 @@ import Prelude
 import qualified Potoki.Core.IO as IO
 import qualified Potoki.Core.Produce as P
 import qualified Potoki.Core.Reduce as C
-import qualified Tests.Transform as BT
+import qualified Tests.Transduce as BT
 
 val2Either :: (a -> Bool) -> a -> Either a a
 val2Either predicate val =
@@ -45,7 +45,7 @@ testChoice4 n =
   in
     IO.produceAndTransduceAndReduce
       (P.list list)
-      (left' BT.transformSucc)
+      (left' BT.transduceSucc)
       C.count
 
 testChoice5 :: Int -> IO Int
@@ -54,5 +54,5 @@ testChoice5 n =
   in
     IO.produceAndTransduceAndReduce
       (P.list list)
-      (right' BT.transformSucc)
+      (right' BT.transduceSucc)
       C.count

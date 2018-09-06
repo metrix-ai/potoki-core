@@ -6,7 +6,7 @@ import Control.Foldl hiding (list)
 import qualified Potoki.Core.IO as IO
 import qualified Potoki.Core.Produce as P
 import qualified Potoki.Core.Reduce as C
-import qualified Tests.Transform as BT
+import qualified Tests.Transduce as BT
 
 val2Tuple :: (Int -> Bool) -> Int -> (Int, Bool)
 val2Tuple predicate val =
@@ -53,7 +53,7 @@ testStrong4 n =
   in
     IO.produceAndTransduceAndReduce
       (P.list list)
-      (first' BT.transformSucc)
+      (first' BT.transduceSucc)
       (C.fold foldTuple)
 
 testStrong5 :: Int -> IO (Int, Bool)
@@ -62,5 +62,5 @@ testStrong5 n =
   in
     IO.produceAndTransduceAndReduce
       (P.list list)
-      (second' BT.transformNot)
+      (second' BT.transduceNot)
       (C.fold foldTuple)
