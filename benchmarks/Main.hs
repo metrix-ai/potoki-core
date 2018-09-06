@@ -8,7 +8,7 @@ import Prelude
 import Gauge.Main
 import Tests.Choice as C
 import Tests.Strong as S
--- import Tests.Produce as P
+import Tests.Produce as P
 import Tests.Reduce as R
 
 main :: IO ()
@@ -30,12 +30,13 @@ main = defaultMain
       [ bench "list unit" $ nfIO (R.reduceUnit 1000000)
       , bench "list list" $ nfIO (R.reduceList 1000000)
       ]
---   , bgroup "Produce"
---       [ bench "Produce monad --> 1000" $ nfIO (P.monad 1000)
---       , bench "Produce List --> 10000" $ nfIO (P.produceList 10000)
---       , bench "Produce Vector --> 10000" $ nfIO (P.produceVector 10000)
---       , bench "produceAlternative --> 10000" $ nfIO (P.produceAlternative 10000)
---       ]
+  , bgroup "Produce"
+      [
+        -- bench "Produce monad --> 1000" $ nfIO (P.monad 1000)
+        bench "Produce List --> 10000" $ nfIO (P.produceList 10000)
+      -- , bench "Produce Vector --> 10000" $ nfIO (P.produceVector 10000)
+      -- , bench "produceAlternative --> 10000" $ nfIO (P.produceAlternative 10000)
+      ]
 --   , bgroup "Consume"
 --       [ bench "Consume List --> 10000" $ nfIO (Co.consumeList 10000)
 --       , bench "Consume Vector --> 10000" $ nfIO (Co.consumeVector 10000)
