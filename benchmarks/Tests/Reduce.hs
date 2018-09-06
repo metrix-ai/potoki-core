@@ -1,7 +1,7 @@
 module Tests.Reduce
 where
 
-import Prelude
+import Prelude hiding (sum)
 import Control.Foldl hiding (list)
 import qualified Potoki.Core.IO as IO
 import qualified Potoki.Core.Produce as P
@@ -18,6 +18,14 @@ reduceUnit n =
       (P.list list)
       C.unit
 
+reduceCount :: Int -> IO Int
+reduceCount n =
+  let list = [0..n]
+  in
+    IO.produceAndReduce
+      (P.list list)
+      C.count
+
 reduceList :: Int -> IO [Int]
 reduceList n =
   let list = [0..n]
@@ -25,6 +33,14 @@ reduceList n =
     IO.produceAndReduce
       (P.list list)
       C.list
+
+reduceFold :: Int -> IO Int
+reduceFold n =
+  let list = [0..n]
+  in
+    IO.produceAndReduce
+      (P.list list)
+      (C.fold sum)
 
 -- reduceVector :: Int -> IO (V.Vector Int)
 -- reduceVector n =
