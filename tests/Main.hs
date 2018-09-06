@@ -55,11 +55,11 @@ main =
     let l = map (show . (+1)) list
     in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (dimap (+1) (show) id) Reduce.list)
     ,
-    testProperty "" $ \ (list :: [Int], amount :: Int) ->
+    testProperty "lmap" $ \ (list :: [Int], amount :: Int) ->
     let l = map (show) list
     in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (lmap show id) Reduce.list)
     ,
-    testProperty "" $ \ (list :: [Int], amount :: Int) ->
+    testProperty "rmap" $ \ (list :: [Int], amount :: Int) ->
     let l = map (show) list
     in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (rmap show id) Reduce.list)
     ,
@@ -139,7 +139,7 @@ transduceArrowLaws =
    [
        testGroup "Strong"
        [
-       testCase "-2" $ do
+       testCase "second" $ do
          let
            input = [('a',1),('b',2),('c',3),('d',4),('e', 5),('f',6)]
            transduce = second' $ Transduce.reduce (Reduce.transduce (Transduce.take 3) Reduce.sum)
@@ -147,7 +147,7 @@ transduceArrowLaws =
          result <- IO.produceAndTransduceAndReduce (Produce.list input) transduce reduce
          assertEqual "" [('c', 6),('f',15)] result
        ,
-       testCase "-1" $ do
+       testCase "Transduce.reduce with take" $ do
          let
            input = [1,2,3,4,5,6]
            transduce = Transduce.reduce (Reduce.transduce (Transduce.take 3) Reduce.sum)
@@ -155,7 +155,7 @@ transduceArrowLaws =
          result <- IO.produceAndTransduceAndReduce (Produce.list input) transduce reduce
          assertEqual "" [6, 15] result
        ,
-       testCase "-1.1" $ do
+       testCase "reduce" $ do
          let
            input = [1,2,3,4,5,6]
            transduce = Transduce.reduce Reduce.sum
