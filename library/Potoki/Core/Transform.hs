@@ -14,6 +14,8 @@ module Potoki.Core.Transform
   just,
   list,
   vector,
+  batch,
+  chunk,
   distinctBy,
   distinct,
   executeIO,
@@ -36,6 +38,7 @@ module Potoki.Core.Transform
   N.concurrently,
   N.unsafeConcurrently,
   N.async,
+  N.concurrentlyWithBatching,
   -- * File IO
   deleteFile,
   appendBytesToFile,
@@ -44,6 +47,7 @@ module Potoki.Core.Transform
   count,
   mapInIOWithCounter,
   handleCount,
+  handleCountOnInterval,
   traceWithCounter,
 )
 where

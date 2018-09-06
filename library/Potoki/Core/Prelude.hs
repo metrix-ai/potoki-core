@@ -107,6 +107,10 @@ import Data.HashMap.Strict as Exports (HashMap)
 -------------------------
 import Data.Vector as Exports (Vector)
 
+-- time
+-------------------------
+import Data.Time as Exports
+
 -- hashable
 -------------------------
 import Data.Hashable as Exports (Hashable)

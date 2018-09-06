@@ -7,6 +7,8 @@ import qualified Potoki.Core.Fetch as A
 import qualified Data.HashSet as C
 import qualified Data.Vector as P
 import qualified Acquire.Acquire as M
+import qualified Data.Vector.Generic.Mutable as MutableGenericVector
+import qualified Data.Vector.Generic as GenericVector
 
 
 {-# INLINE mapFilter #-}
@@ -90,6 +92,57 @@ vector =
             Nothing -> return Nothing
       in loop
 
+{-|
+Alias to "batch".
+-}
+{-# DEPRECATED chunk "Use 'batch' instead" #-}
+chunk :: Int -> Transform a (Vector a)
+chunk = batch
+
+{-|
+Chunk the stream to vector batches of the given size.
+
+It's useful in combination with 'concurrently' in cases where the lifted transform's iteration is too light.
+Actually, there is a composed variation of 'concurrently', which utilizes it: 'concurrentlyWithBatching'.
+-}
+{-# INLINABLE batch #-}
+batch :: Int -> Transform a (Vector a)
+batch size = if size < 1
+  then Transform $ const $ liftIO $ return $ empty
+  else Transform $ \ (Fetch fetch) -> liftIO $ do
+    mvec <- MutableGenericVector.new size
+    cursor <- newIORef 0
+    activeVar <- newIORef True
+    return $ Fetch $ let
+      loop = do
+        active <- readIORef activeVar
+        if active
+          then do
+            fetchingResult <- fetch
+            case fetchingResult of
+              Just !a -> do
+                index <- readIORef cursor
+                MutableGenericVector.unsafeWrite mvec index a
+                let !nextIndex = succ index
+                if nextIndex == size
+                  then do
+                    writeIORef cursor 0
+                    !vec <- GenericVector.freeze mvec
+                    return (Just vec)
+                  else do
+                    writeIORef cursor nextIndex
+                    loop
+              Nothing -> do
+                writeIORef activeVar False
+                index <- readIORef cursor
+                if index > 0
+                  then do
+                    !vec <- GenericVector.freeze (MutableGenericVector.unsafeSlice 0 index mvec)
+                    return (Just vec)
+                  else return Nothing
+          else return Nothing
+      in loop
+
 {-# INLINE distinctBy #-}
 distinctBy :: (Eq comparable, Hashable comparable) => (element -> comparable) -> Transform element element
 distinctBy f =
@@ -147,6 +200,20 @@ handleCount :: (Int -> IO ()) -> Transform a a
 handleCount handler = mapInIOWithCounter $ \ count a -> do
   handler count
   return a
+
+{-|
+Provides for progress monitoring by means of periodic measurement.
+-}
+handleCountOnInterval :: NominalDiffTime -> (Int -> IO ()) -> Transform a a
+handleCountOnInterval interval handler = ioTransform $ do
+  nextTime <- addUTCTime interval <$> getCurrentTime
+  nextTimeRef <- newIORef nextTime
+  return $ handleCount $ \ count -> do
+    nextTime <- readIORef nextTimeRef
+    time <- getCurrentTime
+    when (time >= nextTime) $ do
+      writeIORef nextTimeRef (addUTCTime interval nextTime)
+      handler count
 
 {-|
 Useful for debugging
