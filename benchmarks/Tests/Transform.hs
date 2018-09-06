@@ -16,11 +16,11 @@ transformNot :: Transform Bool Bool
 transformNot =
   arr not
 
-transformTake :: Int -> IO ()
+transformTake :: Int -> IO Int
 transformTake n =
   let list = [0..n]
   in
     IO.produceAndTransformAndConsume
       (P.list list)
       (take n)
-      C.unit
+      C.sum
