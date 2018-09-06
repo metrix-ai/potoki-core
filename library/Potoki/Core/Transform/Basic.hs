@@ -94,8 +94,10 @@ vector =
       in loop
 
 {-|
-Chunk to vectors of the given size.
-Useful as a precursor of 'concurrently' in cases where the lifted transform's iteration is too light.
+Chunk the stream to vector batches of the given size.
+
+It's useful in combination with 'concurrently' in cases where the lifted transform's iteration is too light.
+Actually, there is a composed variation of 'concurrently', which utilizes it: 'concurrentlyWithBatching'.
 -}
 {-# INLINABLE batch #-}
 batch :: Int -> Transform a (Vector a)
