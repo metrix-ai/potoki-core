@@ -40,8 +40,28 @@ main =
     in s === unsafePerformIO (IO.produceAndReduce (Produce.list list) Reduce.sum)
     ,
     testProperty "take" $ \ (list :: [Int], amount :: Int) ->
-    let l = take amount list
+    let l = (take amount list)
     in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (Transduce.take amount) Reduce.list)
+    ,
+    testProperty "dimap transduceId id show" $ \ (list :: [Int], amount :: Int) ->
+    let l = map (show) list
+    in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (dimap (show) (id) id) Reduce.list)
+    ,
+    testProperty "dimap transduceId (+1) id" $ \ (list :: [Int], amount :: Int) ->
+    let l = map (+1) list
+    in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (dimap (+1) (id) id) Reduce.list)
+    ,
+    testProperty "dimap transduceId (+1) show" $ \ (list :: [Int], amount :: Int) ->
+    let l = map (show . (+1)) list
+    in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (dimap (+1) (show) id) Reduce.list)
+    ,
+    testProperty "lmap" $ \ (list :: [Int], amount :: Int) ->
+    let l = map (show) list
+    in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (lmap show id) Reduce.list)
+    ,
+    testProperty "rmap" $ \ (list :: [Int], amount :: Int) ->
+    let l = map (show) list
+    in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (rmap show id) Reduce.list)
     ,
     transduce
   ]
@@ -117,14 +137,46 @@ transduceArrowLaws :: TestTree
 transduceArrowLaws =
   testGroup "Arrow laws"
    [
-     testGroup "Strong"
-     [
+       testGroup "Strong"
+       [
+       testCase "second" $ do
+         let
+           input = [('a',1),('b',2),('c',3),('d',4),('e', 5),('f',6)]
+           transduce = second' $ Transduce.reduce (Reduce.transduce (Transduce.take 3) Reduce.sum)
+           reduce = Reduce.list
+         result <- IO.produceAndTransduceAndReduce (Produce.list input) transduce reduce
+         assertEqual "" [('c', 6),('f',15)] result
+       ,
+       testCase "Transduce.reduce with take" $ do
+         let
+           input = [1,2,3,4,5,6]
+           transduce = Transduce.reduce (Reduce.transduce (Transduce.take 3) Reduce.sum)
+           reduce = Reduce.list
+         result <- IO.produceAndTransduceAndReduce (Produce.list input) transduce reduce
+         assertEqual "" [6, 15] result
+       ,
+       testCase "reduce" $ do
+         let
+           input = [1,2,3,4,5,6]
+           transduce = Transduce.reduce Reduce.sum
+           reduce = Reduce.list
+         result <- IO.produceAndTransduceAndReduce (Produce.list input) transduce reduce
+         assertEqual "" [21] result
+       ,
+       testCase "0" $ do
+         let
+           input = [(1,'a'),(2,'b'),(3,'c'),(4,'d'),(5,'e'),(6,'f')]
+           transduce = first id
+           reduce = (Reduce.transduce (Transduce.take 3) Reduce.list)
+         result <- IO.produceAndTransduceAndReduce (Produce.list input) transduce reduce
+         assertEqual "" [(1,'a'),(2,'b'),(3,'c')] result
+       ,
        testCase "1" $ do
          let
-           input = [(1,'a'),(2,'b'),(3,'c'),(4,'d')]
+           input = [(1,'a'),(2,'b'),(3,'c'),(4,'d'),(5,'e')]
            transduce = first transduce1
          result <- IO.produceAndTransduceAndReduce (Produce.list input) transduce Reduce.list
-         assertEqual "" [(6,'c'),(4,'d')] result
+         assertEqual "" [(6,'c'),(9,'e')] result
        ,
        testCase "Lack of elements" $ do
          let
