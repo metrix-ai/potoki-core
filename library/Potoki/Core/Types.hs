@@ -3,6 +3,10 @@ where
 
 import Potoki.Core.Prelude
 
+data ConsumptionStatus =
+  ConsumedAndReadyForMoreConsumptionStatus |
+  ConsumedAndNotReadyForMoreConsumptionStatus |
+  DidntConsumeAndNotReadyForMoreConsumptionStatus
 
 {-|
 A specification of how to consume one input.

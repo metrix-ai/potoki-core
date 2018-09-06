@@ -70,40 +70,50 @@ instance ArrowChoice Transduce where
   left = left'
   right = right'
 
+-- reduce :: Reduce (IO (EatOne a, IO b)) -> Transduce (EatOne b -> IO (EatOne a, IO ()))
 reduce :: Reduce a b -> Transduce a b
 reduce (Reduce initReduceActions) =
   Transduce $ \ (EatOne consumeB) -> do
-    activeReduceActionsIfAnyRef <- newIORef Nothing
+    activeReduceActionsRef <- newIORef =<< initReduceActions
     let transduceEatOneA = EatOne $ \ a -> do
-          activeReduceActionsIfAny <- readIORef activeReduceActionsIfAnyRef
-          case activeReduceActionsIfAny of
-            Just (reduceEatOneA, reduceFinishB) -> do
-              readyToEatOneMore <- reduceEatOneA a
-              if readyToEatOneMore
-                then return True
-                else do
-                  writeIORef activeReduceActionsIfAnyRef Nothing
-                  b <- reduceFinishB
-                  consumeB b
-            Nothing -> do
-              (EatOne reduceEatOneA, reduceFinishB) <- initReduceActions
+          (EatOne reduceEatOneA, reduceFinishB) <- readIORef activeReduceActionsRef
+          status <- reduceEatOneA a
+          if status
+            then return True
+            else do
+              (EatOne reduceEatOneA, reduceFinishB1) <- initReduceActions
               readyToEatOneMore <- reduceEatOneA a
               if readyToEatOneMore
                 then do
-                  writeIORef activeReduceActionsIfAnyRef (Just (reduceEatOneA, reduceFinishB))
+                  writeIORef activeReduceActionsRef (EatOne reduceEatOneA, reduceFinishB1)
+                  -- b <- reduceFinishB
+                  -- consumeB b
                   return True
                 else do
                   b <- reduceFinishB
                   consumeB b
+              -- writeIORef activeReduceActionsRef =<< initReduceActions
+              -- b <- reduceFinishB
+              -- consumeB b
+          -- case status of
+          --   ConsumedAndReadyForMoreConsumptionStatus -> return ConsumedAndReadyForMoreConsumptionStatus
+          --   ConsumedAndNotReadyForMoreConsumptionStatus -> do
+          --     b <- reduceFinishB
+          --     writeIORef activeReduceActionsRef =<< initReduceActions
+          --     consumeB b
+          --   DidntConsumeAndNotReadyForMoreConsumptionStatus -> do
+          --     b <- reduceFinishB
+          --     (reduceEatOneA, reduceFinishB) <- initReduceActions
+          --     -- # TODO loop
+          --     reduceEatOneA a
+          --     writeIORef activeReduceActionsRef (reduceEatOneA, reduceFinishB)
+          --     consumeB b
         transduceFinish = do
-          activeReduceActionsIfAny <- readIORef activeReduceActionsIfAnyRef
-          case activeReduceActionsIfAny of
-            Just (_, reduceFinishB) -> do
-              writeIORef activeReduceActionsIfAnyRef Nothing
-              b <- reduceFinishB
-              consumeB b
-              return ()
-            Nothing -> return ()
+          (_, reduceFinishB) <- readIORef activeReduceActionsRef
+          writeIORef activeReduceActionsRef (mempty, reduceFinishB)
+          b <- reduceFinishB
+          consumeB b
+          return ()
         in return (transduceEatOneA, transduceFinish)
 
 produce :: (a -> Produce b) -> Transduce a b
