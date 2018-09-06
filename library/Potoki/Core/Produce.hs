@@ -2,6 +2,8 @@ module Potoki.Core.Produce
 (
   Produce(..),
   list,
+  vector,
+  foldable,
   concurrently,
   sequentially,
   empty,
@@ -31,13 +33,21 @@ instance Pointed Produce where
 
 {-# INLINABLE list #-}
 list :: [element] -> Produce element
-list inputList = Produce $ \ (EatOne io) ->
+list = foldable
+
+{-# INLINE vector #-}
+vector :: Vector element -> Produce element
+vector = foldable
+
+{-# INLINE foldable #-}
+foldable :: (Foldable t) => t element -> Produce element
+foldable input = Produce $ \ (EatOne io) ->
   let step element nextIO = do
         hungry <- io element
         if hungry
           then nextIO
           else return False
-  in foldr step (return True) inputList
+  in foldr step (return True) input
 
 {-|
 Unlift a concurrently composed producer.
@@ -106,8 +116,8 @@ alternate (Produce runEatOne1) (Produce runEatOne2) =
                     writeTVar activeVar1 False
                     writeTVar activeVar2 False
             handleShutdownOfProducers = do
-              active1 <- readTVar activeVar1 
-              active2 <- readTVar activeVar2 
+              active1 <- readTVar activeVar1
+              active2 <- readTVar activeVar2
               if active1 || active2
                 then retry
                 else return (return ())
