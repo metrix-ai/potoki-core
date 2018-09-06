@@ -32,10 +32,10 @@ main = defaultMain
       ]
   , bgroup "Produce"
       [
-        -- bench "Produce monad --> 1000" $ nfIO (P.monad 1000)
-        bench "Produce List --> 10000" $ nfIO (P.produceList 10000)
-      -- , bench "Produce Vector --> 10000" $ nfIO (P.produceVector 10000)
-      -- , bench "produceAlternative --> 10000" $ nfIO (P.produceAlternative 10000)
+        bench "Produce monad --> 1000" $ nfIO (P.monad 1000)
+      , bench "Produce List --> 10000" $ nfIO (P.produceList 10000)
+      , bench "Produce Vector --> 10000" $ nfIO (P.produceVector 10000)
+      , bench "produceAlternative --> 10000" $ nfIO (P.produceAlternative 10000)
       ]
 --   , bgroup "Consume"
 --       [ bench "Consume List --> 10000" $ nfIO (Co.consumeList 10000)
