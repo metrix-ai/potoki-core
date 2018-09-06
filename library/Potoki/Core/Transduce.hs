@@ -124,9 +124,7 @@ take amount
       countRef <- newIORef amount
       return $ (,return ()) $ EatOne $ \ input -> do
         count <- readIORef countRef
-        if count > 0
-          then do
-            modifyIORef' countRef pred
-            consume input
-          else
-            return False
+        let nextCount = pred count
+        writeIORef countRef nextCount
+        status <- consume input
+        return $ status && (nextCount > 0)
