@@ -154,6 +154,6 @@ async workersAmount =
 
 concurrentlyWithBatching :: Int -> Int -> Transform a b -> Transform a b
 concurrentlyWithBatching batching concurrency transform =
-  chunk batching >>> bufferize concurrency >>>
-  unsafeConcurrently concurrency (vector >>> transform >>> chunk batching) >>>
+  batch batching >>> bufferize concurrency >>>
+  unsafeConcurrently concurrency (vector >>> transform >>> batch batching) >>>
   vector
