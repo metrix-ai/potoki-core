@@ -1,7 +1,7 @@
 module Tests.Consume
 where
 
-import Prelude
+import Prelude hiding (sum)
 import Control.Foldl hiding (list)
 import qualified Potoki.Core.IO as IO
 import qualified Potoki.Core.Produce as P
@@ -18,6 +18,14 @@ consumeUnit n =
       (P.list list)
       C.unit
 
+consumeCount :: Int -> IO Int
+consumeCount n =
+  let list = [0..n]
+  in
+    IO.produceAndConsume
+      (P.list list)
+      C.count
+
 consumeList :: Int -> IO [Int]
 consumeList n =
   let list = [0..n]
@@ -25,6 +33,14 @@ consumeList n =
     IO.produceAndConsume
       (P.list list)
       C.list
+
+consumeFold :: Int -> IO Int
+consumeFold n =
+  let list = [0..n]
+  in
+    IO.produceAndConsume
+      (P.list list)
+      (C.fold sum)
 
 consumeVector :: Int -> IO (V.Vector Int)
 consumeVector n =

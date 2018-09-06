@@ -7,7 +7,7 @@ import qualified Potoki.Core.Produce as P
 import qualified Potoki.Core.Consume as C
 import qualified Data.Vector as V
 
-monad :: Int -> IO Int
+monad :: Int -> IO ()
 monad n =
   let list = [0..n]
       prod1 = P.list list
@@ -15,25 +15,25 @@ monad n =
   in
     IO.produceAndConsume
       (prod1 >>= prod2)
-      C.count
+      C.unit
 
-produceList :: Int -> IO Int
+produceList :: Int -> IO ()
 produceList n =
   let list = [0..n]
   in
     IO.produceAndConsume
       (P.list list)
-      C.count
+      C.unit
 
-produceVector :: Int -> IO Int
+produceVector :: Int -> IO ()
 produceVector n =
   let vector = V.fromList [0..n]
   in
     IO.produceAndConsume
       (P.vector vector)
-      C.count
+      C.unit
 
-produceAlternative :: Int -> IO Int
+produceAlternative :: Int -> IO ()
 produceAlternative n =
   let list = [0..n]
       vector = V.fromList list
@@ -42,4 +42,4 @@ produceAlternative n =
   in
     IO.produceAndConsume
       (prod1 <|> prod2)
-      C.count
+      C.unit

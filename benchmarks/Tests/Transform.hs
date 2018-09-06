@@ -1,12 +1,11 @@
 module Tests.Transform
-(
-  transformSucc,
-  transformNot,
-)
 where
 
-import Prelude
+import Prelude hiding (take)
 import Potoki.Core.Transform
+import qualified Potoki.Core.IO as IO
+import qualified Potoki.Core.Produce as P
+import qualified Potoki.Core.Consume as C
 
 
 transformSucc :: Transform Int Int
@@ -16,3 +15,12 @@ transformSucc =
 transformNot :: Transform Bool Bool
 transformNot =
   arr not
+
+transformTake :: Int -> IO ()
+transformTake n =
+  let list = [0..n]
+  in
+    IO.produceAndTransformAndConsume
+      (P.list list)
+      (take n)
+      C.unit
