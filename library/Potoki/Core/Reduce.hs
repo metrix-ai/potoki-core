@@ -14,6 +14,7 @@ where
 
 import Potoki.Core.Prelude hiding (foldM, sum)
 import Potoki.Core.Types
+import qualified Control.Foldl as Foldl
 import qualified Potoki.Core.EatOne as A
 
 
@@ -108,6 +109,10 @@ list =
           state <- readIORef stateRef
           return (state $ [])
         in return (EatOne consume, finish)
+
+vector :: Reduce a (Vector a)
+vector =
+  foldM Foldl.vectorM
 
 count :: Reduce a Int
 count =
