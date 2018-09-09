@@ -4,6 +4,7 @@ module Potoki.Core.Produce
   list,
   transform,
   vector,
+  vectorWithIndices,
   hashMapRows,
   fileBytes,
   fileBytesAtOffset,
@@ -116,6 +117,19 @@ vector vectorVal =
           indexVal <- readIORef indexRef
           writeIORef indexRef $! succ indexVal
           return $ (GenericVector.!?) vectorVal indexVal
+      in return fetch
+
+{-# INLINE vectorWithIndices #-}
+vectorWithIndices :: GenericVector.Vector vector a => vector a -> Produce (Int, a)
+vectorWithIndices vectorVal =
+  Produce $ liftIO $ do
+    indexRef <- newIORef 0
+    let
+      fetch =
+        A.Fetch $ do
+          indexVal <- readIORef indexRef
+          writeIORef indexRef $! succ indexVal
+          return $ fmap (indexVal,) $ (GenericVector.!?) vectorVal indexVal
       in return fetch
 
 {-# INLINE hashMapRows #-}
