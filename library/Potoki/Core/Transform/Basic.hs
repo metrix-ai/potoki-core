@@ -71,19 +71,19 @@ list =
             in fetchElementIO
 
 {-# INLINABLE vector #-}
-vector :: Transform (Vector a) a
+vector :: GenericVector.Vector vector a => Transform (vector a) a
 vector =
-  Transform $ \ (A.Fetch fetchVectorIO) -> M.Acquire $ do
+  Transform $ \ (Fetch fetchVectorIO) -> liftIO $ do
     indexRef <- newIORef 0
-    vectorRef <- newIORef mempty
-    return $ (, return ()) $ A.Fetch $ let
+    vectorRef <- newIORef GenericVector.empty
+    return $ Fetch $ let
       loop = do
         vectorVal <- readIORef vectorRef
         indexVal <- readIORef indexRef
-        if indexVal < P.length vectorVal
+        if indexVal < GenericVector.length vectorVal
           then do
             writeIORef indexRef (succ indexVal)
-            return (Just (P.unsafeIndex vectorVal indexVal))
+            return (Just (GenericVector.unsafeIndex vectorVal indexVal))
           else fetchVectorIO >>= \case 
             Just vectorVal' -> do
               writeIORef vectorRef vectorVal'
@@ -96,7 +96,7 @@ vector =
 Alias to "batch".
 -}
 {-# DEPRECATED chunk "Use 'batch' instead" #-}
-chunk :: Int -> Transform a (Vector a)
+chunk :: GenericVector.Vector vector a => Int -> Transform a (vector a)
 chunk = batch
 
 {-|
@@ -106,7 +106,7 @@ It's useful in combination with 'concurrently' in cases where the lifted transfo
 Actually, there is a composed variation of 'concurrently', which utilizes it: 'concurrentlyWithBatching'.
 -}
 {-# INLINABLE batch #-}
-batch :: Int -> Transform a (Vector a)
+batch :: GenericVector.Vector vector a => Int -> Transform a (vector a)
 batch size = if size < 1
   then Transform $ const $ liftIO $ return $ empty
   else Transform $ \ (Fetch fetch) -> liftIO $ do
