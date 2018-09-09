@@ -1,5 +1,5 @@
 name: potoki-core
-version: 2.2.14
+version: 2.2.15
 synopsis: Low-level components of "potoki"
 description:
   Provides everything required for building custom instances of
