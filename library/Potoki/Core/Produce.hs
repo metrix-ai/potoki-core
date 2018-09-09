@@ -22,6 +22,7 @@ import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Data.HashMap.Strict as B
 import qualified Data.Vector as C
+import qualified Data.Vector.Generic as GenericVector
 import qualified System.Directory as G
 import qualified Acquire.Acquire as M
 import qualified Data.ByteString.Lazy as D
@@ -105,17 +106,17 @@ transform (Transform transformAcquire) (Produce produceAcquire) =
     transformAcquire fetch
 
 {-# INLINE vector #-}
-vector :: Vector input -> Produce input
+vector :: GenericVector.Vector vector input => vector input -> Produce input
 vector vectorVal =
-  Produce $ M.Acquire $ do
+  Produce $ liftIO $ do
     indexRef <- newIORef 0
     let
       fetch =
         A.Fetch $ do
           indexVal <- readIORef indexRef
           writeIORef indexRef $! succ indexVal
-          return $ (C.!?) vectorVal indexVal
-      in return (fetch, return ())
+          return $ (GenericVector.!?) vectorVal indexVal
+      in return fetch
 
 {-# INLINE hashMapRows #-}
 hashMapRows :: HashMap a b -> Produce (a, b)
