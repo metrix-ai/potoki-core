@@ -4,6 +4,7 @@ module Potoki.Core.Reduce
   list,
   vector,
   count,
+  vector,
   unit,
   sum,
   zipping,

@@ -39,13 +39,40 @@ main =
     let s = sum list
     in s === unsafePerformIO (IO.produceAndReduce (Produce.list list) Reduce.sum)
     ,
+    transduce
+  ]
+
+transduce :: TestTree
+transduce =
+  testGroup "Transduce" $
+  [
     testProperty "take" $ \ (list :: [Int], amount :: Int) ->
-    let l = (take amount list)
-    in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (Transduce.take amount) Reduce.list)
+      let l = (take amount list)
+      in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (Transduce.take amount) Reduce.list)
     ,
+    testProperty "filter" $ \ (list :: [Int]) ->
+      let l = (filter even list)
+      in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (Transduce.filter even) Reduce.list)
+    ,
+    testProperty "list" $ \ (list :: [[Int]]) ->
+    let l = concat list
+    in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (Transduce.list) Reduce.list)
+    ,
+    transduceProfunctor
+    ,
+    transduceProduce
+    ,
+    transduceChoice
+    ,
+    transduceArrowLaws
+  ]
+
+transduceProfunctor =
+  testGroup "Profunctor"
+  [
     testProperty "dimap transduceId id show" $ \ (list :: [Int], amount :: Int) ->
-    let l = map (show) list
-    in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (dimap (show) (id) id) Reduce.list)
+      let l = map (show) list
+      in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (dimap (show) (id) id) Reduce.list)
     ,
     testProperty "dimap transduceId (+1) id" $ \ (list :: [Int], amount :: Int) ->
     let l = map (+1) list
@@ -62,19 +89,6 @@ main =
     testProperty "rmap" $ \ (list :: [Int], amount :: Int) ->
     let l = map (show) list
     in l === unsafePerformIO (IO.produceAndTransduceAndReduce (Produce.list list) (rmap show id) Reduce.list)
-    ,
-    transduce
-  ]
-
-transduce :: TestTree
-transduce =
-  testGroup "Transduce" $
-  [
-    transduceProduce
-    ,
-    transduceChoice
-    ,
-    transduceArrowLaws
   ]
 
 transduceProduce =

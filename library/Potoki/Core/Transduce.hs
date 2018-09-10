@@ -5,10 +5,14 @@ module Potoki.Core.Transduce
   reduce,
   concurrently,
   take,
+  filter,
+  list,
+  vector,
+  foldable,
 )
 where
 
-import Potoki.Core.Prelude hiding (take)
+import Potoki.Core.Prelude hiding (take, filter, list)
 import Potoki.Core.Types
 import qualified Potoki.Core.EatOne as A
 
@@ -128,3 +132,28 @@ take amount
         writeIORef countRef nextCount
         status <- consume input
         return $ status && (nextCount > 0)
+
+filter :: (a -> Bool) -> Transduce a a
+filter predicate =
+  Transduce $ \ (EatOne consume) -> do
+    return $ (,return ()) $ EatOne $ \ input -> do
+      if (predicate input)
+        then (consume input)
+        else (return True)            
+      
+list :: Transduce [a] a
+list = foldable
+
+vector :: Transduce (Vector a) a
+vector = foldable
+
+foldable :: (Foldable t) => Transduce (t a) a 
+foldable =
+  Transduce $ \ (EatOne consume) ->
+    return $ (, return ()) $ EatOne $ \ input ->
+      let step element nextIO = do
+            hungry <- consume element
+            if hungry
+              then nextIO
+              else return False
+      in foldr step (return True) input
