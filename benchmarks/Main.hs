@@ -16,13 +16,13 @@ main :: IO ()
 main = defaultMain
   [
   --CHOICE Didnt work
-    bgroup "Transform Choice --> 1000000 its didnt work"
+    bgroup "Transduce Choice --> 1000000 its didnt work"
       [ bench "natural"      $ nfIO (C.testChoice1 1000000)
       , bench "left'(succ)"  $ nfIO (C.testChoice4 1000000)
       , bench "right'(succ)" $ nfIO (C.testChoice5 1000000)
       ]
 --STRONG
-  , bgroup "Transform Strong --> 1000000"
+  , bgroup "Transduce Strong --> 1000000"
       [ bench "natural"       $ nfIO (S.testStrong1 1000000)
       , bench "first'(succ)"  $ nfIO (S.testStrong4 1000000)
       , bench "second'(succ)" $ nfIO (S.testStrong5 1000000)
@@ -66,7 +66,11 @@ main = defaultMain
           , bench "10000" $ nfIO (R.reduceFold 10000)
           , bench "1000000" $ nfIO (R.reduceFold 1000000)
           ]
-      -- , bench "Reduce Vector --> 10000" $ nfIO (Co.reduceVector 10000)
+      , bgroup "vector by length"
+          [ bench "100" $ nfIO (R.reduceVector 100)
+          , bench "10000" $ nfIO (R.reduceVector 10000)
+          , bench "1000000" $ nfIO (R.reduceVector 1000000)
+          ]
       -- , bench "Reduce apConcurrently --> 10000" $ nfIO (Co.reduceApConcurrently 10000)
       , bench "Reduce Choice right' --> 10000" $ nfIO (R.reduceRight' 10000)
       ]

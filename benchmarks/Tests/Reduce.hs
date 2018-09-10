@@ -5,7 +5,7 @@ import Prelude hiding (sum)
 import Control.Foldl hiding (list)
 import qualified Potoki.Core.IO as IO
 import qualified Potoki.Core.Produce as P
-import qualified Potoki.Core.Reduce as C
+import qualified Potoki.Core.Reduce as R
 import qualified Tests.Transduce as BT
 import qualified Data.Vector as V
 import Tests.Choice (val2Either)
@@ -16,7 +16,7 @@ reduceUnit n =
   in
     IO.produceAndReduce
       (P.list list)
-      C.unit
+      R.unit
 
 reduceCount :: Int -> IO Int
 reduceCount n =
@@ -24,7 +24,7 @@ reduceCount n =
   in
     IO.produceAndReduce
       (P.list list)
-      C.count
+      R.count
 
 reduceList :: Int -> IO [Int]
 reduceList n =
@@ -32,7 +32,7 @@ reduceList n =
   in
     IO.produceAndReduce
       (P.list list)
-      C.list
+      R.list
 
 reduceFold :: Int -> IO Int
 reduceFold n =
@@ -40,15 +40,15 @@ reduceFold n =
   in
     IO.produceAndReduce
       (P.list list)
-      (C.fold sum)
+      (R.fold sum)
 
--- reduceVector :: Int -> IO (V.Vector Int)
--- reduceVector n =
---   let list = [0..n]
---   in
---     IO.produceAndReduce
---       (P.list list)
---       C.vector
+reduceVector :: Int -> IO (V.Vector Int)
+reduceVector n =
+  let list = [0..n]
+  in
+    IO.produceAndReduce
+      (P.list list)
+      R.vector
 
 -- reduceApConcurrently :: Int -> IO Int
 -- reduceApConcurrently n =
@@ -56,7 +56,7 @@ reduceFold n =
 --   in
 --     IO.produceAndReduce
 --       (P.list list)
---       (C.apConcurrently (C.fold foldFunc) C.count)
+--       (R.apConcurrently (R.fold foldFunc) R.count)
 
 reduceRight' :: Int -> IO (Either Int Int)
 reduceRight' n =
@@ -64,7 +64,7 @@ reduceRight' n =
   in
     IO.produceAndReduce
       (P.list list)
-      (right' C.count)
+      (right' R.count)
 
 foldFunc :: Fold Int (Int -> Int)
 foldFunc = Fold step ini extr

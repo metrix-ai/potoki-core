@@ -2,6 +2,7 @@ module Potoki.Core.Reduce
 (
   Reduce(..),
   list,
+  vector,
   count,
   unit,
   sum,
