@@ -6,6 +6,9 @@ module Potoki.Core.Transduce
   concurrently,
   take,
   filter,
+  list,
+  vector,
+  foldable,
 )
 where
 
@@ -137,3 +140,20 @@ filter predicate =
       if (predicate input)
         then (consume input)
         else (return True)            
+      
+list :: Transduce [a] a
+list = foldable
+
+vector :: Transduce (Vector a) a
+vector = foldable
+
+foldable :: (Foldable t) => Transduce (t a) a 
+foldable =
+  Transduce $ \ (EatOne consume) ->
+    return $ (, return ()) $ EatOne $ \ input ->
+      let step element nextIO = do
+            hungry <- consume element
+            if hungry
+              then nextIO
+              else return False
+      in foldr step (return True) input
