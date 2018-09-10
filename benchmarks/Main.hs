@@ -66,7 +66,11 @@ main = defaultMain
           , bench "10000" $ nfIO (Co.consumeFold 10000)
           , bench "1000000" $ nfIO (Co.consumeFold 1000000)
           ]
-      -- , bench "Reduce Vector --> 10000" $ nfIO (Co.reduceVector 10000)
+      , bgroup "vector by length"
+          [ bench "100" $ nfIO (Co.consumeVector 100)
+          , bench "10000" $ nfIO (Co.consumeVector 10000)
+          , bench "1000000" $ nfIO (Co.consumeVector 1000000)
+          ]
       -- , bench "Reduce apConcurrently --> 10000" $ nfIO (Co.reduceApConcurrently 10000)
       , bench "Reduce Choice right' --> 10000" $ nfIO (Co.consumeRight' 10000)
       ]
