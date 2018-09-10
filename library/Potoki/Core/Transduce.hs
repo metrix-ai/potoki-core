@@ -5,10 +5,11 @@ module Potoki.Core.Transduce
   reduce,
   concurrently,
   take,
+  filter,
 )
 where
 
-import Potoki.Core.Prelude hiding (take)
+import Potoki.Core.Prelude hiding (take, filter, list)
 import Potoki.Core.Types
 import qualified Potoki.Core.EatOne as A
 
@@ -128,3 +129,11 @@ take amount
         writeIORef countRef nextCount
         status <- consume input
         return $ status && (nextCount > 0)
+
+filter :: (a -> Bool) -> Transduce a a
+filter predicate =
+  Transduce $ \ (EatOne consume) -> do
+    return $ (,return ()) $ EatOne $ \ input -> do
+      if (predicate input)
+        then (consume input)
+        else (return True)            
