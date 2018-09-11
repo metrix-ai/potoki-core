@@ -69,7 +69,6 @@ main = defaultMain
       , bgroup "vector by length"
           [ bench "100" $ nfIO (Co.consumeVector 100)
           , bench "10000" $ nfIO (Co.consumeVector 10000)
-          , bench "1000000" $ nfIO (Co.consumeVector 1000000)
           ]
       -- , bench "Reduce apConcurrently --> 10000" $ nfIO (Co.reduceApConcurrently 10000)
       , bench "Reduce Choice right' --> 10000" $ nfIO (Co.consumeRight' 10000)
@@ -79,6 +78,14 @@ main = defaultMain
           [ bench "100" $ nfIO (T.transformTake 100)
           , bench "10000" $ nfIO (T.transformTake 10000)
           , bench "1000000" $ nfIO (T.transformTake 1000000)
+          ]
+      , bgroup "filter even by length"
+          [ bench "100" $ nfIO (T.transformFilter 100)
+          , bench "10000" $ nfIO (T.transformFilter 10000)
+          ]
+      , bgroup "vector by length"
+          [ bench "100" $ nfIO (T.transformVector 100)
+          , bench "10000" $ nfIO (T.transformVector 10000)
           ]
       ]
   ]
