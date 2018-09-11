@@ -135,16 +135,16 @@ transduceChoice =
     testCase "2" $ do
       let
         list = [Left 1, Left 2, Right 'z', Right 'a', Right 'b', Left 0, Right 'x', Left 4, Left 3]
-        transduce = right' (Transduce.reduce Reduce.list)
+        transduce = right' (Transduce.reduce Reduce.list) 
       result <- IO.produceAndTransduceAndReduce (Produce.list list) transduce Reduce.list
-      assertEqual "" [Left 1, Left 2, Right "zab", Left 0, Right "x", Left 4, Left 3] result
+      assertEqual "" [Left 1, Left 2, Left 0, Left 4, Left 3, Right "zabx"] result
     ,
     testCase "3" $ do
       let
         list = [Left 4, Right 'z', Right 'a', Left 3, Right 'b', Left 0, Left 1, Right 'x', Left 4, Left 3]
         transduce = left' (Transduce.reduce Reduce.list)
       result <- IO.produceAndTransduceAndReduce (Produce.list list) transduce Reduce.list
-      assertEqual "" [Left [4], Right 'z', Right 'a', Left [3], Right 'b', Left [0, 1], Right 'x', Left [4, 3]] result
+      assertEqual "" [Right 'z', Right 'a', Right 'b', Right 'x', Left [4, 3, 0, 1, 4, 3]] result
   ]
 
 transduceArrowLaws :: TestTree
