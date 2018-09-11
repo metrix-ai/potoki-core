@@ -80,5 +80,15 @@ main = defaultMain
             , bench "10000" $ nfIO (T.transduceTake 10000)
             , bench "1000000" $ nfIO (T.transduceTake 1000000)
             ]
+        , bgroup "filter even by length"
+            [ bench "100" $ nfIO (T.transduceFilter 100)
+            , bench "10000" $ nfIO (T.transduceFilter 10000)
+            , bench "1000000" $ nfIO (T.transduceFilter 1000000)
+            ]
+        , bgroup "vector by length"
+            [ bench "100" $ nfIO (T.transduceVector 100)
+            , bench "10000" $ nfIO (T.transduceVector 10000)
+            , bench "1000000" $ nfIO (T.transduceVector 1000000)
+            ]
         ]
   ]
