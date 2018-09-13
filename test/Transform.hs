@@ -29,7 +29,7 @@ transform =
         return (list, batchSize)
       in forAll gen $ \ (list, batchSize) -> let
         listChunks = if batchSize < 1 then [] else SplitList.chunksOf batchSize list
-        potokiChunks = unsafePerformIO $ C.produceAndTransformAndConsume (E.list list) (rmap toList (A.batch batchSize)) D.list
+        potokiChunks = unsafePerformIO $ C.produceAndTransformAndConsume (E.list list) (rmap toList (A.batch @Vector batchSize)) D.list
         in listChunks === potokiChunks
     ,
     transformProduce
