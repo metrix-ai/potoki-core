@@ -15,6 +15,7 @@ module Potoki.Core.Produce
   infiniteMVar,
   lazyByteString,
   enumInRange,
+  mergeOrdering,
 )
 where
 
@@ -248,6 +249,9 @@ enumInRange from to =
     ref <- newIORef from
     return (A.enumUntil ref to, return ())
 
+{-|
+Merge two ordered sequences into one
+-}
 mergeOrdering :: (a -> a -> Bool) -> Produce a -> Produce a -> Produce a
 mergeOrdering compare (Produce produceLeft) (Produce produceRight) = Produce $ do
   Fetch fetchLeft <- produceLeft
