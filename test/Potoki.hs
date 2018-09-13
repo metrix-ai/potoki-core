@@ -47,6 +47,26 @@ potoki =
       result <- C.produceAndConsume produce (fmap F.length D.concat)
       assertEqual "" 17400 result
     ,
+    testCase "mergeOrdering produce testCase" $ do
+      let
+        consume = D.list
+        produceAndConsume list1 list2 = C.produceAndConsume (E.mergeOrdering (\a b -> a <= b) (E.list list1) (E.list list2)) (consume)
+      assertEqual "" [1,2,3,4,5,6,7,8,9,10] =<< produceAndConsume [1,3,5,7,9] [2,4,6,8,10]
+      assertEqual "" [1,2,3,4,5,6,7,8,9,10] =<< produceAndConsume [2,4,6,8,10] [1,3,5,7,9]
+      assertEqual "" [1,2,2,3,3,4,5,6,7,8,8,9,9,10] =<< produceAndConsume [1,2,3,8,9,10] [2,3,4,5,6,7,8,9]
+      assertEqual "" [1,2,3,4,5,6,7,8,9,10] =<< produceAndConsume [1,2,3] [4,5,6,7,8,9,10]
+      assertEqual "" [1,2,3,4,5,6,7,8,9,10] =<< produceAndConsume [4,5,6] [1,2,3,7,8,9,10]
+      assertEqual "" [1,2,3,4,5,6,7,8,9,10] =<< produceAndConsume [1,2,3,7,8,9,10] [4,5,6]
+      assertEqual "" [1,2,3,4,5,6,7,8,9,10] =<< produceAndConsume [1,2,3,4,5,6,7,8,9,10] []
+      assertEqual "" [] =<< produceAndConsume ([] :: [Int]) ([] :: [Int]) 
+    ,
+    testProperty "mergeOrdering produce" $ \ (l1 :: [Int], l2 :: [Int]) -> 
+    let 
+      list1 = sort l1
+      list2 = sort l2
+      list = sort $ l1 ++ l2
+    in list === unsafePerformIO (C.produceAndConsume (E.mergeOrdering (\a b -> a <= b) (E.list list1) (E.list list2)) D.list)
+    ,
     transformPotoki
     ,
     parsingPotoki
