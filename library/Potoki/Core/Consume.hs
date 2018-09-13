@@ -348,7 +348,7 @@ parseText =
 Execute a Consume concurrently and consume its results.
 -}
 {-# INLINABLE concurrently #-}
-concurrently :: Int -> Consume a b -> Consume b c -> Consume a c
+concurrently :: NFData b => Int -> Consume a b -> Consume b c -> Consume a c
 concurrently amount consume1 consume2 =
   transform (B.concurrently amount (J.consume consume1)) consume2
   

@@ -36,7 +36,7 @@ bufferizeFlushing maxSize =
         else return (Just batch)
 
 {-# INLINE bufferize #-}
-bufferize :: Int -> Transform element element
+bufferize :: NFData element => Int -> Transform element element
 bufferize size =
   Transform $ \ (A.Fetch fetchIO) -> liftIO $ do
     buffer <- newTBQueueIO size
@@ -46,8 +46,9 @@ bufferize size =
       loop = do
         fetchingResult <- fetchIO
         case fetchingResult of
-          Just !element -> do
-            atomically $ writeTBQueue buffer element
+          Just element -> do
+            forcedElement <- evaluate (force element)
+            atomically $ writeTBQueue buffer forcedElement
             loop
           Nothing -> atomically $ writeTVar activeVar False
       in loop
@@ -90,7 +91,7 @@ Execute the transform on the specified amount of threads.
 The order of the outputs produced is indiscriminate.
 -}
 {-# INLINABLE concurrently #-}
-concurrently :: Int -> Transform input output -> Transform input output
+concurrently :: NFData output => Int -> Transform input output -> Transform input output
 concurrently workersAmount transform =
   if workersAmount == 1
     then transform
@@ -99,7 +100,7 @@ concurrently workersAmount transform =
       unsafeConcurrently workersAmount transform
 
 {-# INLINE unsafeConcurrently #-}
-unsafeConcurrently :: Int -> Transform input output -> Transform input output
+unsafeConcurrently :: NFData output => Int -> Transform input output -> Transform input output
 unsafeConcurrently workersAmount (Transform syncTransformIO) = 
   Transform $ \ fetchIO -> liftIO $ do
     chan <- newTBQueueIO (workersAmount * 2)
@@ -111,8 +112,9 @@ unsafeConcurrently workersAmount (Transform syncTransformIO) =
         loop = do
           fetchResult <- fetchIO
           case fetchResult of
-            Just !result -> do
-              atomically (writeTBQueue chan result)
+            Just result -> do
+              forcedResult <- evaluate (force result)
+              atomically (writeTBQueue chan forcedResult)
               loop
             Nothing -> atomically (modifyTVar' workersCounter pred)
         in loop *> finalize
@@ -129,7 +131,7 @@ unsafeConcurrently workersAmount (Transform syncTransformIO) =
 {-|
 A transform, which fetches the inputs asynchronously on the specified number of threads.
 -}
-async :: Int -> Transform input input
+async :: NFData input => Int -> Transform input input
 async workersAmount = 
   Transform $ \ (A.Fetch fetchIO) -> liftIO $ do
     chan <- atomically newEmptyTMVar
@@ -152,7 +154,7 @@ async workersAmount =
           else return Nothing
       in atomically (readChan <|> terminate)
 
-concurrentlyWithBatching :: Int -> Int -> Transform a b -> Transform a b
+concurrentlyWithBatching :: (NFData a, NFData b) => Int -> Int -> Transform a b -> Transform a b
 concurrentlyWithBatching batching concurrency transform =
   batch @Vector batching >>> bufferize concurrency >>>
   unsafeConcurrently concurrency (vector >>> transform >>> batch @Vector batching) >>>

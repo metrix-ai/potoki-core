@@ -115,6 +115,10 @@ import Data.Hashable as Exports (Hashable)
 -------------------------
 import Data.Primitive as Exports
 
+-- deepseq
+-------------------------
+import Control.DeepSeq as Exports
+
 --------------------------------------------------------------------------------
 
 import qualified Data.Text as A

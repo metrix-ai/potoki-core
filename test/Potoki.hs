@@ -87,7 +87,7 @@ transformPotoki =
     ,
     testCase "Concurrently" $ do
       let
-        list = [1..20000]
+        list = [1..20000] :: [Int]
         produce = E.list list
         transform =
           A.concurrently 12 $
