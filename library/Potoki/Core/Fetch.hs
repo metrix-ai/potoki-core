@@ -214,11 +214,12 @@ handleText handleVal =
 {-# INLINABLE mapFilter #-}
 mapFilter :: (input -> Maybe output) -> Fetch input -> Fetch output
 mapFilter mapping (Fetch fetchIO) =
+  {-# SCC "mapFilter" #-} 
   Fetch $ let
     loop = do 
       fetch <- fetchIO
       case mapping <$> fetch of
-        Just (Just output) -> return (Just output)
+        Just (Just !output) -> return (Just output)
         Just Nothing -> loop
         Nothing -> return Nothing
     in loop
@@ -238,11 +239,12 @@ filter predicate (Fetch fetchIO) =
 {-# INLINABLE just #-}
 just :: Fetch (Maybe element) -> Fetch element
 just (Fetch fetchIO) =
+  {-# SCC "just" #-} 
   Fetch $ let
     loop = do
       fetch <- fetchIO
       case fetch of
-        Just (Just element) -> return (Just element)
+        Just (Just !element) -> return (Just element)
         Just (Nothing) -> loop
         Nothing -> return Nothing
     in loop
@@ -283,7 +285,7 @@ handlingElements xRay (Fetch fetchIO) =
   Fetch $ do
     mbElement <- fetchIO
     case mbElement of
-      Just element -> xRay element $> mbElement
+      Just !element -> xRay element $> mbElement
       Nothing -> return Nothing
 
 {-# INLINE lazyByteStringRef #-}
