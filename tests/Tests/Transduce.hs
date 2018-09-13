@@ -79,7 +79,7 @@ transduceProduce =
         (Transduce.produce (Produce.list . \ n -> flip replicate n n))
         (Reduce.list)
       assertEqual "" [1, 2, 2, 3, 3, 3] result
-  ,
+    ,
     testCase "2" $ do
       let
         list = [1, 2, 3] :: [Int]
@@ -88,7 +88,7 @@ transduceProduce =
         (Transduce.produce (Produce.list . \ n -> [(n, n)]))
         (Reduce.list)
       assertEqual "" [(1, 1), (2, 2), (3, 3)] result
-  ,
+    ,
     testCase "3" $ do
       let
         list = [1, 2, 3] :: [Int]
