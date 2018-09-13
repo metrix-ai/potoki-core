@@ -15,6 +15,7 @@ module Potoki.Core.Produce
   infiniteMVar,
   lazyByteString,
   enumInRange,
+  mergeOrdering,
 )
 where
 
@@ -247,3 +248,58 @@ enumInRange from to =
   Produce $ M.Acquire $ do
     ref <- newIORef from
     return (A.enumUntil ref to, return ())
+
+{-|
+Merge two ordered sequences into one
+-}
+mergeOrdering :: (a -> a -> Bool) -> Produce a -> Produce a -> Produce a
+mergeOrdering compare (Produce produceLeft) (Produce produceRight) = Produce $ do
+  Fetch fetchLeft <- produceLeft
+  Fetch fetchRight <- produceRight
+  leftCache <- liftIO $ newIORef Nothing
+  rightCache <- liftIO $ newIORef Nothing
+  return $ Fetch $ do
+    cachedLeftMaybe <- readIORef leftCache
+    case cachedLeftMaybe of
+      Just left -> do
+        fetchedRightMaybe <- fetchRight
+        case fetchedRightMaybe of
+          Just right -> if compare left right
+            then do
+              writeIORef leftCache Nothing
+              writeIORef rightCache (Just right)
+              return (Just left)
+            else return (Just right)
+          Nothing -> do
+            writeIORef leftCache Nothing
+            return (Just left)
+      Nothing -> do
+        fetchedLeftMaybe <- fetchLeft
+        case fetchedLeftMaybe of
+          Just left -> do
+            cachedRightMaybe <- readIORef rightCache
+            case cachedRightMaybe of
+              Just right -> if compare left right
+                then return (Just left)
+                else do
+                  writeIORef leftCache (Just left)
+                  writeIORef rightCache Nothing
+                  return (Just right)
+              Nothing -> do
+                fetchedRightMaybe <- fetchRight
+                case fetchedRightMaybe of
+                  Just right -> if compare left right
+                    then do
+                      writeIORef rightCache (Just right)
+                      return (Just left)
+                    else do
+                      writeIORef leftCache (Just left)
+                      return (Just right)
+                  Nothing -> return (Just left)
+          Nothing -> do
+            cachedRightMaybe <- readIORef rightCache
+            case cachedRightMaybe of
+              Just right -> do
+                writeIORef rightCache Nothing
+                return (Just right)
+              Nothing -> fetchRight
