@@ -29,17 +29,10 @@ extractLines =
   lineList >>> list
   where
     lineList =
-      Transform $ \ (A.Fetch fetchIO) -> M.Acquire $ do
+      Transform $ \ (Fetch fetchIO) -> liftIO $ do
         stateRef <- newIORef Nothing
-        return $ (, return ()) $  A.Fetch $ fetchIO >>= \case
-          Nothing -> (do
-            state <- readIORef stateRef
-            case state of
-              Just poking -> do
-                writeIORef stateRef Nothing
-                return (Just [D.poking poking])
-              Nothing -> return Nothing)
-          Just chunk -> (
+        return $ Fetch $ fetchIO >>= \case
+          Just chunk ->
             case B.split 10 chunk of
               firstInput : tailVal -> do
                 state <- readIORef stateRef
@@ -56,16 +49,23 @@ extractLines =
                       do
                         writeIORef stateRef (Just newPoking)
                         return (Just [])
-              _ -> return (Just []))
+              _ -> return (Just [])
+          Nothing -> do
+            state <- readIORef stateRef
+            case state of
+              Just poking -> do
+                writeIORef stateRef Nothing
+                return (Just [D.poking poking])
+              Nothing -> return Nothing
 
 extractLinesWithoutTrail :: Transform ByteString ByteString
 extractLinesWithoutTrail =
   lineList >>> list
   where
     lineList =
-      Transform $ \ (A.Fetch fetchIO) -> M.Acquire $ do
+      Transform $ \ (Fetch fetchIO) -> liftIO $ do
         pokingRef <- newIORef mempty
-        return $ (, return ()) $ A.Fetch $ do
+        return $ Fetch $ do
           fetchResult <- fetchIO
           case fetchResult of
             Just chunk -> case B.split 10 chunk of
