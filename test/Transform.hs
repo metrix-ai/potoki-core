@@ -21,6 +21,23 @@ transform :: TestTree
 transform =
   testGroup "Transform" $
   [
+    testGroup "concurrentlyInOrder unit tests" $ let
+      testList (list :: [[Int]]) =
+        testCase (show list) $ do
+          actual <- C.produceAndTransformAndConsume (E.list list) (A.concurrentlyInOrder 4 A.list) D.list
+          assertEqual "" (concat list) actual
+      in [
+          testList [[]] ,
+          testList [[],[]],
+          testList [[0, 1, 2], []],
+          testList [[0, 1, 2], [3]],
+          testList [[0,3,7,-2],[],[],[-8,7,-8,7,3,-4,1,4],[-4,1],[5,-2,3,-2,-5,6,-7],[-8,6,7,1,8,-8,5]]
+        ]
+    ,
+    testProperty "concurrentlyInOrder" $ \ (list :: [[Int]]) ->
+      concat list ===
+      unsafePerformIO (C.produceAndTransformAndConsume (E.list list) (A.concurrentlyInOrder 4 A.list) D.list)
+    ,
     testProperty "list" $ \ (list :: [[Int]]) -> 
       concat list ===
       unsafePerformIO (C.produceAndTransformAndConsume (E.list list) A.list D.list)

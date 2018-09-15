@@ -128,6 +128,66 @@ unsafeConcurrently workersAmount (Transform syncTransformIO) =
           else return Nothing
       in atomically (readChan <|> terminate)
 
+concurrentlyInOrder :: NFData b => Int -> Transform a b -> Transform a b
+concurrentlyInOrder concurrency (Transform transform) = Transform $ \ (Fetch fetchA) -> liftIO $ do
+  inputQueue <- newTBQueueIO concurrency
+  outputSlotQueue <- newTQueueIO
+  liveWorkersVar <- newTVarIO concurrency
+
+  forkIO $ let
+    loop = do
+      fetchAResult <- fetchA
+      case fetchAResult of
+        Just a -> do
+          atomically $ writeTBQueue inputQueue (Just a)
+          loop
+        Nothing -> atomically $ replicateM_ concurrency $ writeTBQueue inputQueue Nothing
+    in loop
+
+  replicateM_ concurrency $ forkIO $ do
+    outputQueue <- newTQueueIO
+    needsSwitchVar <- newTVarIO False
+
+    let
+      localizedFetchA = Fetch $ atomically $ do
+        needsSwitch <- readTVar needsSwitchVar
+        if needsSwitch
+          then writeTQueue outputQueue Nothing
+          else writeTVar needsSwitchVar True
+        writeTQueue outputSlotQueue outputQueue
+        readTBQueue inputQueue
+
+      in do
+        (Fetch fetchB, finalize) <- case transform localizedFetchA of M.Acquire io -> io
+        let
+          loop = do
+            fetchBResult <- fetchB
+            case fetchBResult of
+              Just b -> do
+                forcedB <- evaluate (force b)
+                atomically $ writeTQueue outputQueue (Just forcedB)
+                loop
+              Nothing -> do
+                atomically $ do
+                  writeTQueue outputQueue Nothing
+                  modifyTVar' liveWorkersVar pred
+                finalize
+            in loop
+
+  return $ Fetch $ atomically $ fix $ \ loop -> mplus
+    (do
+      outputQueue <- peekTQueue outputSlotQueue
+      bIfAny <- readTQueue outputQueue
+      case bIfAny of
+        Just b -> return (Just b)
+        Nothing -> do
+          readTQueue outputSlotQueue
+          loop)
+    (do
+      liveWorkers <- readTVar liveWorkersVar
+      guard (liveWorkers <= 0)
+      return Nothing)
+
 {-|
 A transform, which fetches the inputs asynchronously on the specified number of threads.
 -}

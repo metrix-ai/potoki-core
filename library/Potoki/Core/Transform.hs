@@ -35,6 +35,7 @@ module Potoki.Core.Transform
   N.bufferize,
   N.bufferizeFlushing,
   N.concurrently,
+  N.concurrentlyInOrder,
   N.unsafeConcurrently,
   N.async,
   N.concurrentlyWithBatching,
