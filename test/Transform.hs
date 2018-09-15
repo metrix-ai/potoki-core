@@ -21,6 +21,10 @@ transform :: TestTree
 transform =
   testGroup "Transform" $
   [
+    testProperty "list" $ \ (list :: [[Int]]) -> 
+      concat list ===
+      unsafePerformIO (C.produceAndTransformAndConsume (E.list list) A.list D.list)
+    ,
     testProperty "Applying chunksOf to list has the same effect as the \"batch\" transform" $ let
       gen = do
         list <- listOf (choose (0, 1000 :: Int))
