@@ -1,6 +1,6 @@
 module Main where
 
-import Prelude hiding (first, second)
+import Prelude hiding (first, second, choose)
 import Control.Arrow
 import Test.QuickCheck.Instances
 import Test.QuickCheck.Monadic as M
@@ -15,6 +15,7 @@ import qualified Potoki.Core.Produce as E
 import qualified Potoki.Core.Fetch as Fe
 import qualified Data.Attoparsec.ByteString.Char8 as B
 import qualified Data.ByteString as F
+import qualified Data.ByteString.Char8 as I
 import qualified Data.Vector as G
 import qualified System.Random as H
 import qualified Acquire.Acquire as Ac
@@ -25,9 +26,23 @@ main =
   defaultMain $
   testGroup "All tests" $
   [
+    testGroup "lines extraction props" $ let
+      chunksGen = listOf $ do
+        byteList <- listOf (frequency [(1, pure 10), (20, choose (97, 122))])
+        return (F.pack byteList)
+      in [
+        testProperty "extractLines" $ forAll chunksGen $ \ chunks ->
+          F.split 10 (F.concat chunks) ===
+          unsafePerformIO (C.produceAndConsume (E.transform A.extractLines (E.list chunks)) D.list)
+        ,
+        testProperty "extractLinesWithoutTrail" $ forAll chunksGen $ \ chunks ->
+          I.lines (F.concat chunks) ===
+          unsafePerformIO (C.produceAndConsume (E.transform A.extractLinesWithoutTrail (E.list chunks)) D.list)
+      ]
+    ,
     testCase "extractLinesWithoutTrail" $ do
-      assertEqual "" ["ab", "", "cd"] =<<
-        C.produceAndConsume (E.transform A.extractLinesWithoutTrail (E.list ["a", "b\n", "\nc", "d\n"])) D.list
+      assertEqual "" ["ab", "", "c", "d"] =<<
+        C.produceAndConsume (E.transform A.extractLinesWithoutTrail (E.list ["a", "b\n\nc", "\nd\n"])) D.list
     ,
     testCase "extractLines" $ do
       assertEqual "" ["ab", "", "cd", ""] =<<
