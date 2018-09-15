@@ -13,7 +13,6 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Builder as E
 import qualified Data.ByteString.Lazy as F
 import qualified Acquire.Acquire as M
-import qualified Control.Monad.Par as Par
 
 
 {-# INLINE builderChunks #-}
