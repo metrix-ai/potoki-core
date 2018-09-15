@@ -13,6 +13,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Builder as E
 import qualified Data.ByteString.Lazy as F
 import qualified Acquire.Acquire as M
+import qualified Control.Monad.Par as Par
 
 
 {-# INLINE builderChunks #-}
@@ -88,4 +89,6 @@ extractLinesWithoutTrail =
                 then return Nothing
                 else let
                   !bytes = D.poking poking
-                  in return (Just (bytes : []))
+                  in do
+                    writeIORef pokingRef mempty
+                    return (Just [bytes])
