@@ -38,6 +38,10 @@ main =
         testProperty "extractLinesWithoutTrail" $ forAll chunksGen $ \ chunks ->
           I.lines (F.concat chunks) ===
           unsafePerformIO (C.produceAndConsume (E.transform A.extractLinesWithoutTrail (E.list chunks)) D.list)
+        ,
+        testProperty "extractLinesConcurrently" $ forAll chunksGen $ \ chunks ->
+          F.split 10 (F.concat chunks) ===
+          unsafePerformIO (C.produceAndConsume (E.transform (A.extractLinesConcurrently numCapabilities) (E.list chunks)) D.list)
       ]
     ,
     testCase "extractLinesWithoutTrail" $ do

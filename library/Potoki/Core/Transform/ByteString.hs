@@ -4,6 +4,7 @@ where
 import Potoki.Core.Prelude hiding (filter)
 import Potoki.Core.Transform.Basic
 import Potoki.Core.Transform.Instances ()
+import Potoki.Core.Transform.Concurrency
 import Potoki.Core.Types
 import qualified Potoki.Core.Fetch as A
 import qualified Potoki.Core.Produce as H
@@ -91,3 +92,48 @@ extractLinesWithoutTrail =
                   in do
                     writeIORef pokingRef mempty
                     return (Just [bytes])
+
+extractLinesConcurrently :: Int -> Transform ByteString ByteString
+extractLinesConcurrently concurrency =
+  concurrentlyInOrder concurrency (arr (B.split 10)) >>> mergeLineChunks
+
+mergeLineChunks :: Transform [ByteString] ByteString
+mergeLineChunks = Transform $ \ (Fetch fetchChunkList) -> liftIO $ do
+  cachedChunkListRef <- newIORef (Just [])
+  incompleteChunkRef <- newIORef Nothing
+  return $ Fetch $ let
+    loop = do
+      cachedChunkListIfAny <- readIORef cachedChunkListRef
+      case cachedChunkListIfAny of
+        Just cachedChunkList -> case cachedChunkList of
+          (!a) : b : tail -> do
+            writeIORef cachedChunkListRef (Just (b : tail))
+            return (Just a)
+          (!a) : _ -> do
+            writeIORef cachedChunkListRef (Just [])
+            writeIORef incompleteChunkRef (Just a)
+            loop
+          _ -> do
+            newChunkListIfAny <- fetchChunkList
+            incompleteChunkIfAny <- readIORef incompleteChunkRef
+            case incompleteChunkIfAny of
+              Just incompleteChunk -> case newChunkListIfAny of
+                Just newChunkList -> case newChunkList of
+                  a : b : tail -> do
+                    completeChunk <- evaluate (incompleteChunk <> a)
+                    writeIORef cachedChunkListRef (Just (b : tail))
+                    writeIORef incompleteChunkRef Nothing
+                    return (Just completeChunk)
+                  a : _ -> do
+                    newIncompleteChunk <- evaluate (incompleteChunk <> a)
+                    writeIORef incompleteChunkRef (Just newIncompleteChunk)
+                    loop
+                  _ -> loop
+                Nothing -> do
+                  writeIORef cachedChunkListRef Nothing
+                  return (Just incompleteChunk)
+              Nothing -> do
+                writeIORef cachedChunkListRef newChunkListIfAny
+                loop
+        Nothing -> return Nothing
+    in loop

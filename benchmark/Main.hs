@@ -11,7 +11,13 @@ import qualified Potoki.Core.Transform as Transform
 main =
   defaultMain $
   [
-    bench "extractLinesTransform" $ whnfIO $ produceAndConsume
+    bench "extractLinesConcurrently" $ whnfIO $ produceAndConsume
+      (Produce.fileBytes "data/2.tsv")
+      (right' (Consume.transform
+        (Transform.extractLinesConcurrently numCapabilities)
+        (Consume.count)))
+    ,
+    bench "extractLines" $ whnfIO $ produceAndConsume
       (Produce.fileBytes "data/2.tsv")
       (right' (Consume.transform
         (Transform.extractLines)
