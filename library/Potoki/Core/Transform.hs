@@ -20,7 +20,10 @@ module Potoki.Core.Transform
   executeIO,
   mapInIO,
   -- * ByteString
-  module Potoki.Core.Transform.ByteString,
+  builderChunks,
+  extractLines,
+  extractLinesWithoutTrail,
+  extractLinesConcurrently,
   -- * State
   R.runState,
   R.execState,
