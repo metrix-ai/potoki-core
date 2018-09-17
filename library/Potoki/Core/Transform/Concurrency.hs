@@ -219,3 +219,9 @@ concurrentlyWithBatching batching concurrency transform =
   batch @Vector batching >>> bufferize concurrency >>>
   unsafeConcurrently concurrency (vector >>> transform >>> batch @Vector batching) >>>
   vector
+
+concurrentlyInOrderWithBatching :: (NFData b) => Int -> Int -> Transform a b -> Transform a b
+concurrentlyInOrderWithBatching batching concurrency transform =
+  batch @Vector batching >>> 
+  concurrentlyInOrder concurrency (vector >>> transform >>> batch @Vector batching) >>>
+  vector

@@ -95,7 +95,7 @@ extractLinesWithoutTrail =
 
 extractLinesConcurrently :: Int -> Transform ByteString ByteString
 extractLinesConcurrently concurrency =
-  concurrentlyInOrder concurrency (arr (B.split 10)) >>> mergeLineChunks
+  concurrentlyInOrderWithBatching 100 concurrency (arr (B.split 10)) >>> mergeLineChunks
 
 mergeLineChunks :: Transform [ByteString] ByteString
 mergeLineChunks = Transform $ \ (Fetch fetchChunkList) -> liftIO $ do
