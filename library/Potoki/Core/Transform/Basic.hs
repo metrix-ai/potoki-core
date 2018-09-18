@@ -9,6 +9,8 @@ import qualified Data.Vector as P
 import qualified Acquire.Acquire as M
 import qualified Data.Vector.Generic.Mutable as MutableGenericVector
 import qualified Data.Vector.Generic as GenericVector
+import qualified Text.Builder as TextBuilder
+import qualified Potoki.Core.TextBuilder as TextBuilder
 
 
 {-# INLINE mapFilter #-}
@@ -308,4 +310,15 @@ take amount
             fetchIO
           else
             return Nothing
-      
+
+reportProgress :: (Text -> IO ()) -> Transform a a
+reportProgress log = handleProgressAndCountOnInterval 1 $ \ progress count ->
+  log $ TextBuilder.run $ TextBuilder.streamProgressMessage progress count
+
+handleProgressAndCountOnInterval :: NominalDiffTime -> (Int -> Int -> IO ()) -> Transform a a
+handleProgressAndCountOnInterval interval handle = ioTransform $ do
+  lastCountRef <- newIORef 0
+  return $ handleCountOnInterval interval $ \ count -> do
+    lastCount <- readIORef lastCountRef
+    writeIORef lastCountRef count
+    handle (count - lastCount) count
