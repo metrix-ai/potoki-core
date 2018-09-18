@@ -124,26 +124,28 @@ list unsentListRef =
         return Nothing
 
 {-# INLINABLE firstCachingSecond #-}
-firstCachingSecond :: IORef b -> Fetch (a, b) -> Fetch a
+firstCachingSecond :: IORef (Maybe b) -> Fetch (a, b) -> Fetch a
 firstCachingSecond cacheRef (Fetch bothFetchIO) =
   Fetch $ do
     bothFetch <- bothFetchIO
     case bothFetch of
       Nothing -> return Nothing
       Just (!firstVal, !secondVal) -> do
-        writeIORef cacheRef secondVal
+        writeIORef cacheRef (Just secondVal)
         return $ Just firstVal
 
 {-# INLINABLE bothFetchingFirst #-}
-bothFetchingFirst :: IORef b -> Fetch a -> Fetch (a, b)
+bothFetchingFirst :: IORef (Maybe b) -> Fetch a -> Fetch (a, b)
 bothFetchingFirst cacheRef (Fetch firstFetchIO) =
   Fetch $ do
     firstFetch <- firstFetchIO
     case firstFetch of
       Nothing -> return Nothing
       Just !firstFetched -> do
-        secondCached <- readIORef cacheRef
-        return $ Just (firstFetched, secondCached)
+        secondCachedIfAny <- readIORef cacheRef
+        case secondCachedIfAny of
+          Just secondCached -> return $ Just (firstFetched, secondCached)
+          Nothing -> return Nothing
 
 {-# INLINABLE rightHandlingLeft #-}
 rightHandlingLeft :: (left -> IO ()) -> Fetch (Either left right) -> Fetch right
