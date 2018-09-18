@@ -23,16 +23,16 @@ instance Choice Transform where
       fetchedLeftMaybeRef <- liftIO $ newIORef Nothing
       Fetch rightFetchIO <- rightTransformAcquire (A.rightHandlingLeft (writeIORef fetchedLeftMaybeRef . Just) inFetch)
       return $ Fetch $ do
-          rightFetch <- rightFetchIO
-          case rightFetch of
-            Nothing    -> do
-              fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
-              case fetchedLeftMaybe of
-                Nothing          -> return Nothing
-                Just fetchedLeft -> do
-                  writeIORef fetchedLeftMaybeRef Nothing
-                  return $ Just (Left fetchedLeft)
-            Just element -> return $ Just (Right element)
+        rightFetch <- rightFetchIO
+        case rightFetch of
+          Nothing -> do
+            fetchedLeftMaybe <- readIORef fetchedLeftMaybeRef
+            case fetchedLeftMaybe of
+              Nothing -> return Nothing
+              Just fetchedLeft -> do
+                writeIORef fetchedLeftMaybeRef Nothing
+                return $ Just (Left fetchedLeft)
+          Just element -> return $ Just (Right element)
 
 instance Strong Transform where
   first' (Transform firstTransformAcquire) =

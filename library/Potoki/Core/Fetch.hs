@@ -119,7 +119,7 @@ list unsentListRef =
       (!headVal) : (!tailVal) -> do
         writeIORef unsentListRef tailVal
         return $ Just headVal
-      _              -> do
+      _ -> do
         writeIORef unsentListRef []
         return Nothing
 
@@ -129,7 +129,7 @@ firstCachingSecond cacheRef (Fetch bothFetchIO) =
   Fetch $ do
     bothFetch <- bothFetchIO
     case bothFetch of
-      Nothing                -> return Nothing
+      Nothing -> return Nothing
       Just (!firstVal, !secondVal) -> do
         writeIORef cacheRef secondVal
         return $ Just firstVal
@@ -140,7 +140,7 @@ bothFetchingFirst cacheRef (Fetch firstFetchIO) =
   Fetch $ do
     firstFetch <- firstFetchIO
     case firstFetch of
-      Nothing            -> return Nothing
+      Nothing -> return Nothing
       Just !firstFetched -> do
         secondCached <- readIORef cacheRef
         return $ Just (firstFetched, secondCached)
@@ -151,7 +151,7 @@ rightHandlingLeft left2IO (Fetch eitherFetchIO) =
   Fetch $ do
     eitherFetch <- eitherFetchIO
     case eitherFetch of
-      Nothing    -> return Nothing
+      Nothing -> return Nothing
       Just input -> case input of
         Right rightInput -> return $ Just rightInput
         Left  leftInput  -> left2IO leftInput $> Nothing
