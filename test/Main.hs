@@ -157,6 +157,17 @@ resourceChecker =
       let prod = liftIO (return n)
       len <- run (C.produceAndConsume prod D.count)
       M.assert (len == 1)
+    ,
+    testCase "Check mergeOrdering" $ do
+      resourceVar1 <- newIORef Initial
+      resourceVar2 <- newIORef Initial
+      let prod1 = checkProduce resourceVar1 (/= Released) 100
+          prod2 = checkProduce resourceVar2 (/= Released) 50
+      res <- C.produceAndConsume (E.mergeOrdering (\a b -> a <= b) prod1 prod2) D.list  
+      fin1 <- readIORef resourceVar1
+      fin2 <- readIORef resourceVar2
+      assertEqual "" Released fin1
+      assertEqual "" Released fin2
     ]
 
 intToProduce :: Int -> E.Produce Int
