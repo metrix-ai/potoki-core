@@ -157,6 +157,16 @@ transformPotoki =
       let prod = E.list list
       res <- run (C.produceAndTransformAndConsume prod (A.filter even) D.list)
       M.assert (res == filteredList)
+    ,
+    testCase "uniquify" $ do
+      let list = [1,1,2,3,4,5,5,5,6,7,8,9,10]
+      res <- C.produceAndTransformAndConsume (E.list list) (A.uniquify) D.list
+      assertEqual "" [1,2,3,4,5,6,7,8,9,10] res
+    ,
+    testProperty "uniquify unit test" $ \ (list :: [Int]) ->
+    let sortList = sort list
+        uniquifyList = nub sortList
+    in uniquifyList === unsafePerformIO (C.produceAndTransformAndConsume (E.list sortList) (A.uniquify) D.list)
   ]
 
 parsingPotoki :: TestTree

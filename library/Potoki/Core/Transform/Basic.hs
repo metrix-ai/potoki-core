@@ -322,3 +322,27 @@ handleProgressAndCountOnInterval interval handle = ioTransform $ do
     lastCount <- readIORef lastCountRef
     writeIORef lastCountRef count
     handle (count - lastCount) count
+
+uniquify :: (Eq a) => Transform a a
+uniquify = 
+  Transform $ \ (Fetch fetchIO) -> M.Acquire $ do
+    duplicateRef <- newIORef Nothing
+    return $ (, return ()) $ A.Fetch $ let
+      loop = do
+        dupliacte <- readIORef duplicateRef
+        fetch <- fetchIO
+        case fetch of
+          Nothing -> return Nothing
+          Just elem -> do
+            case dupliacte of
+              Nothing -> do
+                writeIORef duplicateRef fetch
+                return fetch
+              Just dupl -> do
+                if elem == dupl 
+                  then
+                    loop
+                  else do
+                    writeIORef duplicateRef (Just elem)
+                    return fetch
+      in loop
