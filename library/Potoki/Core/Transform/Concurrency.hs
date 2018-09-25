@@ -12,7 +12,7 @@ import qualified Acquire.Acquire as M
 bufferizeFlushing :: Int -> Transform input [input]
 bufferizeFlushing maxSize =
   Transform $ \ (A.Fetch fetchIO) -> liftIO $ do
-    buffer <- newTBQueueIO maxSize
+    buffer <- newTBQueueIO (fromIntegral maxSize)
     activeVar <- newTVarIO True
 
     forkIO $ let
@@ -39,7 +39,7 @@ bufferizeFlushing maxSize =
 bufferize :: NFData element => Int -> Transform element element
 bufferize size =
   Transform $ \ (A.Fetch fetchIO) -> liftIO $ do
-    buffer <- newTBQueueIO size
+    buffer <- newTBQueueIO (fromIntegral size)
     activeVar <- newTVarIO True
 
     forkIO $ let
@@ -103,7 +103,7 @@ concurrently workersAmount transform =
 unsafeConcurrently :: NFData output => Int -> Transform input output -> Transform input output
 unsafeConcurrently workersAmount (Transform syncTransformIO) = 
   Transform $ \ fetchIO -> liftIO $ do
-    chan <- newTBQueueIO (workersAmount * 2)
+    chan <- newTBQueueIO (fromIntegral (workersAmount * 2))
     workersCounter <- newTVarIO workersAmount
 
     replicateM_ workersAmount $ forkIO $ do
@@ -130,7 +130,7 @@ unsafeConcurrently workersAmount (Transform syncTransformIO) =
 
 concurrentlyInOrder :: NFData b => Int -> Transform a b -> Transform a b
 concurrentlyInOrder concurrency (Transform transform) = Transform $ \ (Fetch fetchA) -> liftIO $ do
-  inputQueue <- newTBQueueIO concurrency
+  inputQueue <- newTBQueueIO (fromIntegral concurrency)
   outputSlotQueue <- newTQueueIO
   liveWorkersVar <- newTVarIO concurrency
 
