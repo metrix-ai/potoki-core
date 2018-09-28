@@ -4,7 +4,7 @@ where
 import Potoki.Core.Prelude
 import Potoki.Core.Types
 import Potoki.Core.Transduce ()
-import qualified Potoki.Core.Send as Send
+import qualified Potoki.Core.Push as Push
 
 
 deriving instance Profunctor TransduceConcurrently

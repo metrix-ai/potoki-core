@@ -1,6 +1,6 @@
-module Potoki.Core.Send
+module Potoki.Core.Push
 (
-  Send(..),
+  Push(..),
   putToVarWhileActive,
   apWhileActive,
 )
@@ -9,33 +9,33 @@ where
 import Potoki.Core.Prelude hiding (sum, head, fold, concat, last)
 import Potoki.Core.Types
 
-instance Contravariant Send where
-  contramap fn (Send io) = Send (io . fn)
+instance Contravariant Push where
+  contramap fn (Push io) = Push (io . fn)
 
-instance Divisible Send where
-  conquer = Send (\ _ -> return True)
-  divide fn (Send io1) (Send io2) =
-    Send $ \ input -> case fn input of
+instance Divisible Push where
+  conquer = Push (\ _ -> return True)
+  divide fn (Push io1) (Push io2) =
+    Push $ \ input -> case fn input of
       (input1, input2) -> do
         continue1 <- io1 input1
         continue2 <- io2 input2
         let continue = continue1 && continue2
         return continue
 
-instance Semigroup (Send a) where
-  (<>) (Send io1) (Send io2) =
-    Send $ \ input -> do
+instance Semigroup (Push a) where
+  (<>) (Push io1) (Push io2) =
+    Push $ \ input -> do
       continue1 <- io1 input
       continue2 <- io2 input
       return (continue1 && continue2)
 
-instance Monoid (Send a) where
+instance Monoid (Push a) where
   mempty = conquer
   mappend = (<>)
 
-putToVarWhileActive :: STM Bool -> TMVar element -> Send element
+putToVarWhileActive :: STM Bool -> TMVar element -> Push element
 putToVarWhileActive checkIfActive elementVar =
-  Send $ \ element -> atomically $
+  Push $ \ element -> atomically $
   mplus
     (putTMVar elementVar element $> True)
     (do
@@ -44,9 +44,9 @@ putToVarWhileActive checkIfActive elementVar =
         then retry
         else return False)
 
-apWhileActive :: STM Bool -> STM () -> TMVar (a -> b) -> Send b -> Send a
-apWhileActive checkIfActive signalEnd aToBVar (Send consumeB) =
-  Send $ \ a -> join $ atomically $
+apWhileActive :: STM Bool -> STM () -> TMVar (a -> b) -> Push b -> Push a
+apWhileActive checkIfActive signalEnd aToBVar (Push consumeB) =
+  Push $ \ a -> join $ atomically $
   mplus
     (do
       aToB <- takeTMVar aToBVar

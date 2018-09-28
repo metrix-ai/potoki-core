@@ -7,13 +7,13 @@ import Potoki.Core.Prelude
 {-|
 A specification of how to send one input value.
 -}
-newtype Send input =
-  Send (input -> IO Bool)
+newtype Push input =
+  Push (input -> IO Bool)
 
 newtype Produce element =
   {-| An action, which executes the consuming action, and indicates,
   whether the consumer is still ready to process more input. -}
-  Produce (Send element -> IO Bool)
+  Produce (Push element -> IO Bool)
 
 {-|
 A producer which composes concurrently.
@@ -28,7 +28,7 @@ newtype ProduceSequentially element =
   ProduceSequentially (Produce element)
 
 newtype Reduce element reduction =
-  Reduce (IO (Send element, IO reduction))
+  Reduce (IO (Push element, IO reduction))
 
 newtype ReduceSequentially element reduction =
   ReduceSequentially (Reduce element (Maybe reduction))
@@ -37,7 +37,7 @@ newtype ReduceZipping element reduction =
   ReduceZipping (Reduce element reduction)
 
 newtype Transduce input output =
-  Transduce (Send output -> IO (Send input, IO ()))
+  Transduce (Push output -> IO (Push input, IO ()))
 
 {-|
 Same as 'Transduce',

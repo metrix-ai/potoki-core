@@ -7,7 +7,7 @@ where
 
 import Potoki.Core.Prelude
 import Potoki.Core.Types
-import qualified Potoki.Core.Send as A
+import qualified Potoki.Core.Push as A
 import qualified Potoki.Core.Produce as E
 
 

@@ -7,7 +7,7 @@ where
 
 import Potoki.Core.Prelude
 import Potoki.Core.Types
-import qualified Potoki.Core.Send as A
+import qualified Potoki.Core.Push as A
 import qualified Potoki.Core.Reduce as B
 
 
@@ -27,7 +27,7 @@ instance Monad (ReduceSequentially input) where
   (>>=) (ReduceSequentially (Reduce reduceA)) aToReduceB =
     ReduceSequentially $ Reduce $ do
       stateRef <- newIORef Nothing
-      (Send consumeOfA, extractA) <- reduceA
+      (Push consumeOfA, extractA) <- reduceA
       let
         consumeOfB x = do
           state <- readIORef stateRef
@@ -43,7 +43,7 @@ instance Monad (ReduceSequentially input) where
                   case maybeA of
                     Just a -> case aToReduceB a of
                       ReduceSequentially (Reduce reduceB) -> do
-                        (Send consumeOfB, extractB) <- reduceB
+                        (Push consumeOfB, extractB) <- reduceB
                         writeIORef stateRef (Just (consumeOfB, extractB))
                         return True
                     Nothing -> return False
@@ -52,7 +52,7 @@ instance Monad (ReduceSequentially input) where
           case state of
             Just (_, extractB) -> extractB
             Nothing -> return Nothing
-        in return (Send consumeOfB, extractB)
+        in return (Push consumeOfB, extractB)
 
 instance Semigroupoid ReduceSequentially where
   o = (.)
@@ -64,16 +64,16 @@ instance Category ReduceSequentially where
           writeIORef headRef (Just x)
           return False
         extract = readIORef headRef
-        in return (Send consume, extract)
+        in return (Push consume, extract)
   (.) (ReduceSequentially (Reduce reduceBToC)) (ReduceSequentially (Reduce reduceAToB)) =
     ReduceSequentially $ Reduce $ do
       stateRef <- newIORef Nothing
-      (Send consumeB, extractC) <- reduceBToC
+      (Push consumeB, extractC) <- reduceBToC
       let consume a = do
             state <- readIORef stateRef
             case state of
               Nothing -> do
-                (Send consumeA, extractB) <- reduceAToB
+                (Push consumeA, extractB) <- reduceAToB
                 readyForMore <- consumeA a
                 if readyForMore
                   then do
@@ -106,7 +106,7 @@ instance Category ReduceSequentially where
                     consumeB b
                     extractC
                   Nothing -> return Nothing
-      return (Send consume, extract)
+      return (Push consume, extract)
 
 instance Arrow ReduceSequentially where
   arr fn = ReduceSequentially $ Reduce $ do
@@ -115,7 +115,7 @@ instance Arrow ReduceSequentially where
           writeIORef outputRef (Just (fn x))
           return False
         extract = readIORef outputRef
-        in return (Send consume, extract)
+        in return (Push consume, extract)
   first = first'
   second = second'
 
@@ -131,7 +131,7 @@ instance Strong ReduceSequentially where
   first' :: ReduceSequentially a b -> ReduceSequentially (a, c) (b, c)
   first' (ReduceSequentially (Reduce reduceAToB)) = ReduceSequentially $ Reduce $ do
     maybeCRef <- newIORef Nothing
-    (Send consumeA, extractB) <- reduceAToB 
+    (Push consumeA, extractB) <- reduceAToB 
     let consumeAAndC (a, c) = do
           writeIORef maybeCRef (Just c)
           consumeA a
@@ -144,7 +144,7 @@ instance Strong ReduceSequentially where
                 Just c -> return (Just (b, c))
                 Nothing -> return Nothing
             Nothing -> return Nothing
-        in return (Send consumeAAndC, extractBAndC)
+        in return (Push consumeAAndC, extractBAndC)
 
 instance Choice ReduceSequentially where
   right' :: ReduceSequentially a b -> ReduceSequentially (Either c a) (Either c b)

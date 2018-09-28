@@ -21,7 +21,7 @@ where
 
 import Potoki.Core.Prelude hiding (empty)
 import Potoki.Core.Types
-import qualified Potoki.Core.Send as A
+import qualified Potoki.Core.Push as A
 import qualified DeferredFolds.UnfoldlM as B
 
 
@@ -41,7 +41,7 @@ vector = foldable
 
 {-# INLINE foldable #-}
 foldable :: (Foldable t) => t element -> Produce element
-foldable input = Produce $ \ (Send io) ->
+foldable input = Produce $ \ (Push io) ->
   let step element nextIO = do
         hungry <- io element
         if hungry
@@ -65,42 +65,42 @@ empty :: Produce element
 empty = Produce (\ _ -> return True)
 
 singleton :: element -> Produce element
-singleton x = Produce (\ (Send io) -> io x)
+singleton x = Produce (\ (Push io) -> io x)
 
 apSequentially :: Produce (a -> b) -> Produce a -> Produce b
-apSequentially (Produce runSend1) (Produce runSend2) =
-  Produce $ \ (Send consumeIO2) ->
-  runSend1 $ Send $ \ element1 ->
-  runSend2 $ Send $ \ element2 ->
+apSequentially (Produce runPush1) (Produce runPush2) =
+  Produce $ \ (Push consumeIO2) ->
+  runPush1 $ Push $ \ element1 ->
+  runPush2 $ Push $ \ element2 ->
   consumeIO2 $ element1 element2
 
 apConcurrently :: Produce (a -> b) -> Produce a -> Produce b
-apConcurrently (Produce runSend1) (Produce runSend2) =
+apConcurrently (Produce runPush1) (Produce runPush2) =
   Produce $ \ consume3 -> do
     elementVar1 <- newEmptyTMVarIO
     readyToProduceVar <- newTVarIO True
-    readyToSendVar <- newTVarIO True
+    readyToPushVar <- newTVarIO True
     forkIO $ do
-      runSend1 (A.putToVarWhileActive (readTVar readyToProduceVar) elementVar1)
+      runPush1 (A.putToVarWhileActive (readTVar readyToProduceVar) elementVar1)
       atomically (writeTVar readyToProduceVar False)
-    runSend2 (A.apWhileActive (readTVar readyToProduceVar) (writeTVar readyToSendVar False) elementVar1 consume3)
+    runPush2 (A.apWhileActive (readTVar readyToProduceVar) (writeTVar readyToPushVar False) elementVar1 consume3)
     atomically (writeTVar readyToProduceVar False)
-    atomically (readTVar readyToSendVar)
+    atomically (readTVar readyToPushVar)
 
 alternate :: Produce a -> Produce a -> Produce a
-alternate (Produce runSend1) (Produce runSend2) =
-  Produce runSend3
+alternate (Produce runPush1) (Produce runPush2) =
+  Produce runPush3
   where
-    runSend3 (Send consumeElement3) = do
+    runPush3 (Push consumeElement3) = do
       elementVar <- newEmptyTMVarIO
       activeVar1 <- newTVarIO True
       activeVar2 <- newTVarIO True
-      readyToSendVar <- newTVarIO True
+      readyToPushVar <- newTVarIO True
       forkIO $ do
-        runSend1 (A.putToVarWhileActive (readTVar activeVar1) elementVar)
+        runPush1 (A.putToVarWhileActive (readTVar activeVar1) elementVar)
         atomically (writeTVar activeVar1 False)
       forkIO $ do
-        runSend2 (A.putToVarWhileActive (readTVar activeVar2) elementVar)
+        runPush2 (A.putToVarWhileActive (readTVar activeVar2) elementVar)
         atomically (writeTVar activeVar2 False)
       let
         processNextElement =
@@ -112,7 +112,7 @@ alternate (Produce runSend1) (Produce runSend2) =
                 if active
                   then processNextElement
                   else atomically $ do
-                    writeTVar readyToSendVar False
+                    writeTVar readyToPushVar False
                     writeTVar activeVar1 False
                     writeTVar activeVar2 False
             handleShutdownOfProducers = do
@@ -124,26 +124,26 @@ alternate (Produce runSend1) (Produce runSend2) =
             in join (atomically (processNextElementIfExists <|> handleShutdownOfProducers))
         in do
           processNextElement
-          atomically (readTVar readyToSendVar)
+          atomically (readTVar readyToPushVar)
 
 prepend :: Produce a -> Produce a -> Produce a
-prepend (Produce runSend1) (Produce runSend2) =
+prepend (Produce runPush1) (Produce runPush2) =
   Produce $ \ consume -> do
-    readyToSend <- runSend1 consume
-    if readyToSend
-      then runSend2 consume
+    readyToPush <- runPush1 consume
+    if readyToPush
+      then runPush2 consume
       else return False
 
 concatConcurrently :: Foldable t => t (Produce element) -> Produce element
-concatConcurrently list = Produce runSend where
-  runSend (Send consumeElement) = do
+concatConcurrently list = Produce runPush where
+  runPush (Push consumeElement) = do
     elementVar <- newEmptyTMVarIO
     consumeIsActiveVar <- newTVarIO True
     activeProducersCountVar <- newTVarIO (length list)
     let
       checkWhetherToProduce = readTVar consumeIsActiveVar
-    forM_ list $ \ (Produce subRunSend) -> forkIO $ do
-      subRunSend $ A.putToVarWhileActive checkWhetherToProduce elementVar
+    forM_ list $ \ (Produce subRunPush) -> forkIO $ do
+      subRunPush $ A.putToVarWhileActive checkWhetherToProduce elementVar
       atomically $ modifyTVar' activeProducersCountVar pred
     let
       processNextElement =
@@ -166,21 +166,21 @@ concatConcurrently list = Produce runSend where
         atomically (readTVar consumeIsActiveVar)
 
 bind :: Produce a -> (a -> Produce b) -> Produce b
-bind (Produce runSend1) k2 =
+bind (Produce runPush1) k2 =
   Produce $ \ consume2 ->
-  runSend1 $ Send $ \ element1 ->
+  runPush1 $ Push $ \ element1 ->
   case k2 element1 of
-    Produce runSend2 ->
-      runSend2 consume2 $> True
+    Produce runPush2 ->
+      runPush2 consume2 $> True
 
 transduce :: Transduce a b -> Produce a -> Produce b
 transduce (Transduce transduceIO) (Produce produceIO) =
   Produce $ \ consume -> do
-    (transducedSend, finishTransducer) <- transduceIO consume
-    produceIO transducedSend <* finishTransducer
+    (transducedPush, finishTransducer) <- transduceIO consume
+    produceIO transducedPush <* finishTransducer
 
 unfoldlM :: UnfoldlM IO a -> Produce a
 unfoldlM (UnfoldlM fold) =
-  Produce $ \ (Send consume) ->
+  Produce $ \ (Push consume) ->
   let step state input = if state then consume input else return False
       in fold step True

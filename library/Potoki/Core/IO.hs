@@ -16,7 +16,7 @@ produceAndTransduceAndReduce :: Produce input1 -> Transduce input1 input2 -> Red
 produceAndTransduceAndReduce (Produce produceIO) (Transduce transduceIO) (Reduce reduceIO) =
   do
     (consume, finishReducer) <- reduceIO
-    (transducedSend, finishTransducer) <- transduceIO consume
-    produceIO transducedSend
+    (transducedPush, finishTransducer) <- transduceIO consume
+    produceIO transducedPush
     finishTransducer
     finishReducer
