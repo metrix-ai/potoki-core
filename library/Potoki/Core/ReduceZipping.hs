@@ -7,7 +7,7 @@ where
 
 import Potoki.Core.Prelude
 import Potoki.Core.Types
-import qualified Potoki.Core.EatOne as A
+import qualified Potoki.Core.Send as A
 import qualified Potoki.Core.Reduce as B
 
 
@@ -23,9 +23,9 @@ instance Applicative (ReduceZipping input) where
     ReduceZipping $ Reduce $ do
       (consume1, finish1) <- io1
       (consume2, finish2) <- io2
-      let newEatOne = consume1 <> consume2
+      let newSend = consume1 <> consume2
           newFinish = finish1 <*> finish2
-          in return (newEatOne, newFinish)
+          in return (newSend, newFinish)
 
 reduce :: Reduce a b -> ReduceZipping a b
 reduce = ReduceZipping

@@ -1,6 +1,6 @@
-module Potoki.Core.EatOne
+module Potoki.Core.Send
 (
-  EatOne(..),
+  Send(..),
   putToVarWhileActive,
   apWhileActive,
 )
@@ -9,33 +9,33 @@ where
 import Potoki.Core.Prelude hiding (sum, head, fold, concat, last)
 import Potoki.Core.Types
 
-instance Contravariant EatOne where
-  contramap fn (EatOne io) = EatOne (io . fn)
+instance Contravariant Send where
+  contramap fn (Send io) = Send (io . fn)
 
-instance Divisible EatOne where
-  conquer = EatOne (\ _ -> return True)
-  divide fn (EatOne io1) (EatOne io2) =
-    EatOne $ \ input -> case fn input of
+instance Divisible Send where
+  conquer = Send (\ _ -> return True)
+  divide fn (Send io1) (Send io2) =
+    Send $ \ input -> case fn input of
       (input1, input2) -> do
         continue1 <- io1 input1
         continue2 <- io2 input2
         let continue = continue1 && continue2
         return continue
 
-instance Semigroup (EatOne a) where
-  (<>) (EatOne io1) (EatOne io2) =
-    EatOne $ \ input -> do
+instance Semigroup (Send a) where
+  (<>) (Send io1) (Send io2) =
+    Send $ \ input -> do
       continue1 <- io1 input
       continue2 <- io2 input
       return (continue1 && continue2)
 
-instance Monoid (EatOne a) where
+instance Monoid (Send a) where
   mempty = conquer
   mappend = (<>)
 
-putToVarWhileActive :: STM Bool -> TMVar element -> EatOne element
+putToVarWhileActive :: STM Bool -> TMVar element -> Send element
 putToVarWhileActive checkIfActive elementVar =
-  EatOne $ \ element -> atomically $
+  Send $ \ element -> atomically $
   mplus
     (putTMVar elementVar element $> True)
     (do
@@ -44,9 +44,9 @@ putToVarWhileActive checkIfActive elementVar =
         then retry
         else return False)
 
-apWhileActive :: STM Bool -> STM () -> TMVar (a -> b) -> EatOne b -> EatOne a
-apWhileActive checkIfActive signalEnd aToBVar (EatOne consumeB) =
-  EatOne $ \ a -> join $ atomically $
+apWhileActive :: STM Bool -> STM () -> TMVar (a -> b) -> Send b -> Send a
+apWhileActive checkIfActive signalEnd aToBVar (Send consumeB) =
+  Send $ \ a -> join $ atomically $
   mplus
     (do
       aToB <- takeTMVar aToBVar

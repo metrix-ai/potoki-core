@@ -16,7 +16,7 @@ where
 import Potoki.Core.Prelude hiding (foldM, sum)
 import Potoki.Core.Types
 import qualified Control.Foldl as Foldl
-import qualified Potoki.Core.EatOne as A
+import qualified Potoki.Core.Send as A
 
 
 instance Functor (Reduce input) where
@@ -32,12 +32,12 @@ instance Semigroupoid Reduce where
   o (Reduce reduceBToC) (Reduce reduceAToB) =
     Reduce $ do
       stateRef <- newIORef Nothing
-      (EatOne consumeB, extractC) <- reduceBToC
+      (Send consumeB, extractC) <- reduceBToC
       let consume a = do
             state <- readIORef stateRef
             case state of
               Nothing -> do
-                (EatOne consumeA, extractB) <- reduceAToB
+                (Send consumeA, extractB) <- reduceAToB
                 readyForMore <- consumeA a
                 if readyForMore
                   then do
@@ -63,7 +63,7 @@ instance Semigroupoid Reduce where
                 b <- extractB
                 consumeB b
                 extractC
-      return (EatOne consume, extract)
+      return (Send consume, extract)
 
 instance Profunctor Reduce where
   dimap :: (a -> b) -> (c -> d) -> Reduce b c -> Reduce a d
@@ -77,7 +77,7 @@ instance Choice Reduce where
   right' (Reduce reduceAToB) =
     Reduce $ do
       stateRef <- newIORef Nothing
-      (EatOne consumeA, extractB) <- reduceAToB
+      (Send consumeA, extractB) <- reduceAToB
       let consumeCOrA = \case
             Right a -> consumeA a
             Left c -> do
@@ -88,12 +88,12 @@ instance Choice Reduce where
             case state of
               Nothing -> fmap Right extractB
               Just c -> return (Left c)
-          in return (EatOne consumeCOrA, extractCOrB)
+          in return (Send consumeCOrA, extractCOrB)
 
 unit :: Reduce a ()
 unit =
   Reduce $ do
-    return (EatOne (\_ -> return True), return ())
+    return (Send (\_ -> return True), return ())
 
 {-# INLINABLE list #-}
 list :: Reduce a [a]
@@ -109,7 +109,7 @@ list =
         finish = do
           state <- readIORef stateRef
           return (state $ [])
-        in return (EatOne consume, finish)
+        in return (Send consume, finish)
 
 vector :: Reduce a (Vector a)
 vector =
@@ -125,7 +125,7 @@ count =
         finish = do
           state <- readIORef varRef
           return state
-        in return (EatOne consume, finish)
+        in return (Send consume, finish)
 
 sum :: (Num num) => Reduce num num
 sum =
@@ -137,14 +137,14 @@ sum =
         finish = do
           state <- readIORef varRef
           return state
-        in return (EatOne consume, finish)
+        in return (Send consume, finish)
 
 transduce :: Transduce a b -> Reduce b c -> Reduce a c
 transduce (Transduce transduceIO) (Reduce reduceIO) =
   Reduce $ do
     (consume, finishReduce) <- reduceIO
-    (transducedEatOne, finishTransduce) <- transduceIO consume
-    return (transducedEatOne, finishTransduce *> finishReduce)
+    (transducedSend, finishTransduce) <- transduceIO consume
+    return (transducedSend, finishTransduce *> finishReduce)
 
 zipping :: ReduceZipping a b -> Reduce a b
 zipping (ReduceZipping reduce) = reduce
@@ -164,7 +164,7 @@ foldM (FoldM step init extract) =
         finish = do
           state <- readIORef stateRef
           extract state
-        in return (EatOne consume, finish)
+        in return (Send consume, finish)
 
 fold :: Fold a b -> Reduce a b
 fold (Fold step init extract) =
@@ -178,4 +178,4 @@ fold (Fold step init extract) =
         finish = do
           state <- readIORef stateRef
           return (extract state)
-        in return (EatOne consume, finish)
+        in return (Send consume, finish)
