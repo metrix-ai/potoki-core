@@ -15,14 +15,14 @@ module Potoki.Core.Produce
   concatConcurrently,
   bind,
   transduce,
-  unfoldM,
+  unfoldlM,
 )
 where
 
 import Potoki.Core.Prelude hiding (empty)
 import Potoki.Core.Types
 import qualified Potoki.Core.Send as A
-import qualified DeferredFolds.UnfoldM as B
+import qualified DeferredFolds.UnfoldlM as B
 
 
 instance Functor Produce where
@@ -179,8 +179,8 @@ transduce (Transduce transduceIO) (Produce produceIO) =
     (transducedSend, finishTransducer) <- transduceIO consume
     produceIO transducedSend <* finishTransducer
 
-unfoldM :: UnfoldM IO a -> Produce a
-unfoldM (UnfoldM fold) =
+unfoldlM :: UnfoldlM IO a -> Produce a
+unfoldlM (UnfoldlM fold) =
   Produce $ \ (Send consume) ->
   let step state input = if state then consume input else return False
       in fold step True
