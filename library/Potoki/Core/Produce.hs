@@ -13,6 +13,8 @@ module Potoki.Core.Produce
   directoryContents,
   finiteMVar,
   infiniteMVar,
+  tbmChan,
+  tmChan,
   lazyByteString,
   enumInRange,
   mergeOrdering,
@@ -235,6 +237,16 @@ Never stops.
 infiniteMVar :: MVar element -> Produce element
 infiniteMVar var =
   Produce $ M.Acquire (return (A.infiniteMVar var, return ()))
+
+{-# INLINE tbmChan #-}
+tbmChan :: TBMChan element -> Produce element
+tbmChan chan = do
+  Produce $ return $ Fetch $ atomically $ readTBMChan chan
+
+{-# INLINE tmChan #-}
+tmChan :: TMChan element -> Produce element
+tmChan chan = do
+  Produce $ return $ Fetch $ atomically $ readTMChan chan
 
 {-# INLINE lazyByteString #-}
 lazyByteString :: D.ByteString -> Produce ByteString

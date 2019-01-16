@@ -123,6 +123,11 @@ import Control.DeepSeq as Exports
 -------------------------
 import DeferredFolds.Unfoldr as Exports (Unfoldr(..))
 
+-- stm-chans
+-------------------------
+import Control.Concurrent.STM.TBMChan as Exports
+import Control.Concurrent.STM.TMChan as Exports
+
 --------------------------------------------------------------------------------
 
 import qualified Data.Text as A
