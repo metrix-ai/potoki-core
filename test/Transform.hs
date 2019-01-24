@@ -42,6 +42,10 @@ transform =
       concat list ===
       unsafePerformIO (C.produceAndTransformAndConsume (E.list list) A.list D.list)
     ,
+    testProperty "drop" $ \ (list :: [Int], n :: Int) -> 
+      (drop n list) ===
+      unsafePerformIO (C.produceAndTransformAndConsume (E.list list) (A.drop n) D.list)
+    ,
     testProperty "Applying chunksOf to list has the same effect as the \"batch\" transform" $ let
       gen = do
         list <- listOf (choose (0, 1000 :: Int))
