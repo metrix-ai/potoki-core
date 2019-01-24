@@ -36,17 +36,22 @@ takeWhile predicate =
 {-# INLINE drop #-}
 drop :: Int -> Transform input input
 drop amount =
-  Transform $ \ (A.Fetch fetchIO) -> M.Acquire $ do
-    countRef <- newIORef amount
-    return $ (, return ()) $ A.Fetch $ let
-      loop = do
-        count <- readIORef countRef
-        if count > 0
-          then do
-            writeIORef countRef $! pred count
-            loop
-          else fetchIO
-      in loop
+  Transform $ \ (A.Fetch fetchIO) -> do
+    countRef <- liftIO $ newIORef amount
+    return $ Fetch $ do
+      let
+        loop = do
+          count <- readIORef countRef
+          fetch <- fetchIO
+          case fetch of
+            Just _ ->
+              if count > 0
+                then do
+                  writeIORef countRef $! pred count
+                  loop
+                else (return fetch)
+            Nothing -> return Nothing
+      loop
 
 {-# INLINE list #-}
 list :: Transform [a] a
